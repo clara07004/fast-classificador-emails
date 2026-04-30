@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Classificador de Emails Fast — Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f2f5;color:#1f2937;font-size:14px}
+/* HEADER */
+.header{background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);color:#fff;padding:24px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,0.2)}
+.header-left h1{font-size:20px;font-weight:700;letter-spacing:-0.3px}
+.header-left p{font-size:12px;opacity:.75;margin-top:3px}
+.header-stats{display:flex;gap:20px;flex-wrap:wrap}
+.hstat{text-align:center;background:rgba(255,255,255,0.12);border-radius:10px;padding:10px 18px}
+.hstat .num{font-size:22px;font-weight:800;line-height:1}
+.hstat .lab{font-size:10px;opacity:.8;margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
+.badge-status{background:#10b981;color:#fff;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;display:inline-block;margin-top:6px}
+/* TABS */
+.tabs-nav{background:#fff;border-bottom:2px solid #e5e7eb;display:flex;gap:0;overflow-x:auto;padding:0 24px;position:sticky;top:80px;z-index:99;box-shadow:0 1px 4px rgba(0,0,0,0.05)}
+.tab-btn{padding:14px 20px;font-size:13px;font-weight:600;color:#6b7280;border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:all .2s}
+.tab-btn:hover{color:#2563eb}
+.tab-btn.active{color:#2563eb;border-bottom-color:#2563eb}
+/* CONTENT */
+.tab-content{display:none;padding:28px 32px;max-width:1200px;margin:0 auto}
+.tab-content.active{display:block}
+/* CARDS */
+.cards-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px}
+.card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,0.07);border-left:4px solid #2563eb}
+.card.red{border-left-color:#ef4444}
+.card.green{border-left-color:#10b981}
+.card.orange{border-left-color:#f59e0b}
+.card.purple{border-left-color:#8b5cf6}
+.card .c-num{font-size:32px;font-weight:800;color:#1f2937;line-height:1}
+.card .c-label{font-size:12px;color:#6b7280;margin-top:5px}
+.card .c-sub{font-size:11px;color:#9ca3af;margin-top:2px}
+/* SECTIONS */
+.section{background:#fff;border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,0.07)}
+.section h2{font-size:15px;font-weight:700;color:#1e3a5f;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #f0f2f5}
+.section h3{font-size:13px;font-weight:700;color:#374151;margin:16px 0 10px}
+/* TABLES */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#f8fafc;color:#374151;font-weight:600;padding:10px 12px;text-align:left;border-bottom:2px solid #e5e7eb;white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid #f0f2f5;vertical-align:top;color:#374151}
+tr:hover td{background:#fafbfc}
+/* BADGES */
+.badge{display:inline-block;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-p1{background:#fee2e2;color:#991b1b}
+.badge-p2{background:#dbeafe;color:#1e40af}
+.badge-p3{background:#f3f4f6;color:#6b7280}
+.badge-pre{background:#fff7ed;color:#c2410c}
+.badge-f1{background:#eff6ff;color:#1d4ed8}
+.badge-f2{background:#f5f3ff;color:#6d28d9}
+.badge-f3{background:#f0fdf4;color:#166534}
+.badge-f6{background:#f9fafb;color:#6b7280}
+.badge-dia1{background:#dbeafe;color:#1e40af}
+.badge-dia2{background:#f5f3ff;color:#6d28d9}
+.badge-dia3{background:#ecfeff;color:#0e7490}
+.badge-dia4{background:#d1fae5;color:#065f46}
+.badge-dia5{background:#fef3c7;color:#92400e}
+.badge-dia6{background:#fee2e2;color:#991b1b}
+.badge-n1{background:#fee2e2;color:#991b1b}
+.badge-n2{background:#ffedd5;color:#9a3412}
+.badge-n3{background:#fef3c7;color:#92400e}
+.badge-n4{background:#d1fae5;color:#065f46}
+.badge-n5{background:#f3f4f6;color:#6b7280}
+.badge-ok{background:#d1fae5;color:#065f46}
+.badge-block{background:#fee2e2;color:#991b1b}
+/* SCHEDULE DAYS */
+.schedule-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:20px}
+.day-card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,0.07);border-top:4px solid}
+.day-card.d1{border-top-color:#2563eb}
+.day-card.d2{border-top-color:#7c3aed}
+.day-card.d3{border-top-color:#0891b2}
+.day-card.d4{border-top-color:#059669}
+.day-card.d5{border-top-color:#d97706}
+.day-card.d6{border-top-color:#dc2626}
+.day-card h3{font-size:13px;font-weight:700;margin-bottom:4px}
+.day-card .hours-big{font-size:28px;font-weight:800;margin-bottom:2px}
+.day-card.d1 .hours-big{color:#2563eb}
+.day-card.d2 .hours-big{color:#7c3aed}
+.day-card.d3 .hours-big{color:#0891b2}
+.day-card.d4 .hours-big{color:#059669}
+.day-card.d5 .hours-big{color:#d97706}
+.day-card.d6 .hours-big{color:#dc2626}
+.day-card .goal{font-size:11px;color:#6b7280;margin-bottom:12px}
+.day-tasks{list-style:none}
+.day-tasks li{font-size:12px;padding:4px 0;border-bottom:1px solid #f0f2f5;display:flex;justify-content:space-between;gap:8px}
+.day-tasks li:last-child{border-bottom:none}
+.day-tasks li span.tid{font-size:10px;color:#9ca3af;font-weight:600;flex-shrink:0}
+.day-tasks li span.th{font-size:10px;color:#6b7280;flex-shrink:0}
+.day-card .criteria{font-size:11px;color:#059669;margin-top:10px;padding-top:8px;border-top:1px dashed #d1fae5;font-style:italic}
+/* FLOW */
+.flows-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+.flow-card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,0.07)}
+.flow-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+.flow-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.flow-card h3{font-size:14px;font-weight:700;color:#1e3a5f}
+.flow-card .trigger{font-size:11px;color:#6b7280;margin-top:2px}
+.flow-steps{list-style:none}
+.flow-steps li{display:flex;gap:10px;padding:6px 0;font-size:12px;color:#374151;border-bottom:1px solid #f0f2f5}
+.flow-steps li:last-child{border-bottom:none}
+.step-num{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px}
+.flow-integrations{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid #f0f2f5}
+.int-tag{font-size:10px;padding:2px 7px;border-radius:8px;font-weight:600;background:#f0f2f5;color:#6b7280}
+/* ARCH */
+.stack-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px}
+.stack-item{background:#f8fafc;border-radius:10px;padding:14px;border:1px solid #e5e7eb}
+.stack-item .layer{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;margin-bottom:4px}
+.stack-item .tool{font-size:14px;font-weight:700;color:#1e3a5f}
+.stack-item .desc{font-size:11px;color:#6b7280;margin-top:3px}
+/* PENDENCIAS */
+.pend-list{display:flex;flex-direction:column;gap:12px}
+.pend-item{background:#fff;border-radius:10px;padding:16px;border-left:4px solid #ef4444;box-shadow:0 1px 4px rgba(0,0,0,0.07)}
+.pend-item .p-header{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.pend-item .p-id{font-size:11px;font-weight:700;background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:8px}
+.pend-item .p-title{font-size:14px;font-weight:700;color:#1f2937}
+.pend-item .p-desc{font-size:12px;color:#6b7280;line-height:1.5}
+.pend-item .p-hours{font-size:11px;color:#9ca3af;margin-top:6px}
+/* FILTER */
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.filter-btn{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:2px solid #e5e7eb;background:#fff;cursor:pointer;color:#6b7280;transition:all .15s}
+.filter-btn:hover{border-color:#2563eb;color:#2563eb}
+.filter-btn.active{background:#2563eb;color:#fff;border-color:#2563eb}
+/* MILESTONES */
+.milestones{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.milestone{background:#f8fafc;border-radius:10px;padding:12px 14px;border:1px solid #e5e7eb;display:flex;gap:10px;align-items:flex-start}
+.milestone .m-day{font-size:11px;font-weight:700;color:#2563eb;flex-shrink:0;margin-top:2px}
+.milestone .m-text{font-size:12px;color:#374151;font-weight:600}
+.milestone .m-crit{font-size:11px;color:#6b7280;margin-top:2px}
+/* SCHEMA */
+.schema-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.schema-table{background:#f8fafc;border-radius:10px;padding:14px;border:1px solid #e5e7eb}
+.schema-table h4{font-size:12px;font-weight:700;color:#1e3a5f;margin-bottom:8px;font-family:monospace}
+.schema-table .field{font-size:11px;color:#374151;padding:3px 0;border-bottom:1px solid #e9ecef;display:flex;justify-content:space-between}
+.schema-table .field:last-child{border-bottom:none}
+.schema-table .ftype{color:#7c3aed;font-family:monospace}
+/* CRITERIA CALLOUT */
+.callout{border-radius:10px;padding:14px 16px;font-size:12px;margin-top:12px;display:flex;gap:10px;align-items:flex-start}
+.callout.green{background:#d1fae5;color:#065f46}
+.callout.blue{background:#dbeafe;color:#1e40af}
+.callout.orange{background:#fff7ed;color:#c2410c}
+.callout.red{background:#fee2e2;color:#991b1b}
+/* PROGRESS BAR */
+.progress-bar{height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;margin-top:6px}
+.progress-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#2563eb,#7c3aed)}
+/* DECISION TABLE */
+.decision-tag{display:inline-block;background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600}
+/* HIDDEN ROW */
+.task-row{transition:opacity .15s}
+.task-row.hidden{display:none}
+/* CONFIDENCE METER */
+.conf-bar{display:flex;align-items:center;gap:8px;font-size:11px}
+.conf-fill{height:4px;border-radius:2px;background:#10b981;display:inline-block}
+/* LEVEL DESCRIPTIONS */
+.levels-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:20px}
+.level-card{border-radius:10px;padding:14px;border:1px solid}
+.lc1{background:#fff5f5;border-color:#fecaca}
+.lc2{background:#fff8f0;border-color:#fed7aa}
+.lc3{background:#fffbeb;border-color:#fde68a}
+.lc4{background:#f0fdf4;border-color:#bbf7d0}
+.lc5{background:#f9fafb;border-color:#e5e7eb}
+.level-card .ln{font-size:18px;font-weight:800}
+.lc1 .ln{color:#dc2626}
+.lc2 .ln{color:#ea580c}
+.lc3 .ln{color:#d97706}
+.lc4 .ln{color:#16a34a}
+.lc5 .ln{color:#6b7280}
+.level-card .lname{font-size:13px;font-weight:700;margin:2px 0}
+.level-card .ldesc{font-size:11px;color:#6b7280;line-height:1.5}
+.level-card .laction{font-size:11px;font-weight:600;margin-top:6px;padding-top:6px;border-top:1px dashed #e5e7eb}
+.lc1 .laction{color:#dc2626}
+.lc2 .laction{color:#ea580c}
+.lc3 .laction{color:#d97706}
+.lc4 .laction{color:#16a34a}
+.lc5 .laction{color:#6b7280}
+/* RISK TABLE */
+.risk-row td:first-child{font-weight:600;color:#374151}
+.risk-row td:last-child{color:#059669;font-size:12px}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <h1>📧 Classificador de Emails Fast</h1>
+    <p>classificador-emails-fast · Fast Sistemas Construtivos</p>
+    <span class="badge-status">✓ Pronto para Implementação</span>
+  </div>
+  <div class="header-stats">
+    <div class="hstat"><div class="num">47</div><div class="lab">Tarefas</div></div>
+    <div class="hstat"><div class="num">80h</div><div class="lab">Estimado</div></div>
+    <div class="hstat"><div class="num">6</div><div class="lab">Dias</div></div>
+    <div class="hstat"><div class="num">5</div><div class="lab">Bloqueadores</div></div>
+    <div class="hstat"><div class="num">3</div><div class="lab">Fases</div></div>
+  </div>
+</header>
+
+<!-- TABS -->
+<nav class="tabs-nav">
+  <button class="tab-btn active" onclick="showTab('visao')">Visão Geral</button>
+  <button class="tab-btn" onclick="showTab('cronograma')">Cronograma</button>
+  <button class="tab-btn" onclick="showTab('backlog')">Backlog</button>
+  <button class="tab-btn" onclick="showTab('fluxos')">Fluxos</button>
+  <button class="tab-btn" onclick="showTab('arquitetura')">Arquitetura</button>
+  <button class="tab-btn" onclick="showTab('pendencias')">Pendências ⚠️</button>
+</nav>
+
+<!-- ===== TAB: VISÃO GERAL ===== -->
+<div id="tab-visao" class="tab-content active">
+
+  <div class="cards-row">
+    <div class="card red">
+      <div class="c-num">5</div>
+      <div class="c-label">Bloqueadores externos</div>
+      <div class="c-sub">Resolvidos antes do MVP</div>
+    </div>
+    <div class="card">
+      <div class="c-num">44h</div>
+      <div class="c-label">Fase 1 — MVP</div>
+      <div class="c-sub">4 sprints / 4 dias</div>
+    </div>
+    <div class="card purple">
+      <div class="c-num">21h</div>
+      <div class="c-label">Fase 2 — Aprendizado</div>
+      <div class="c-sub">3 sprints / 1 dia</div>
+    </div>
+    <div class="card green">
+      <div class="c-num">6h</div>
+      <div class="c-label">Fase 3 — Rollout</div>
+      <div class="c-sub">1 sprint / 1 dia</div>
+    </div>
+    <div class="card orange">
+      <div class="c-num">18h</div>
+      <div class="c-label">Fase 6 — Futuro</div>
+      <div class="c-sub">7 melhorias opcionais</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div class="section">
+      <h2>Objetivo</h2>
+      <p style="font-size:13px;color:#374151;line-height:1.7;margin-bottom:14px">
+        Classificar automaticamente emails recebidos em <strong>5 níveis de prioridade</strong> via Claude API, executar ações por nível (pasta IMAP + rascunho de resposta) e aprender com o comportamento individual de cada funcionário ao longo do tempo.
+      </p>
+      <p style="font-size:13px;color:#374151;line-height:1.7">
+        A automação é <strong>invisível ao usuário final</strong>: a caixa de email continua igual, com pastas organizadas e rascunhos prontos para revisão. Nenhum email é enviado automaticamente.
+      </p>
+      <div class="callout blue" style="margin-top:14px">
+        <span>👥</span>
+        <span><strong>Usuário final:</strong> funcionários não técnicos da Fast. Sem mudança de interface, sem treinamento necessário.</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Critérios de Sucesso</h2>
+      <table>
+        <tr><th>Métrica</th><th>Meta</th></tr>
+        <tr><td>Taxa de aceitação da classificação</td><td><strong>≥ 70%</strong> após ajuste inicial</td></tr>
+        <tr><td>Tempo email urgente → primeira leitura</td><td>Redução mensurável</td></tr>
+        <tr><td>Distância de edição rascunho × enviado</td><td>Decaimento ao longo do tempo</td></tr>
+        <tr><td>Correções por funcionário por semana</td><td>Decaimento esperado</td></tr>
+        <tr><td>Onboarding de novo funcionário</td><td>&lt; 15 minutos</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>5 Níveis de Prioridade</h2>
+    <div class="levels-grid">
+      <div class="level-card lc1">
+        <div class="ln">N1</div>
+        <div class="lname">Urgente</div>
+        <div class="ldesc">Requer resposta imediata. Cliente com prazo crítico, obra parada, crise.</div>
+        <div class="laction">→ Pasta Urgente + Rascunho</div>
+      </div>
+      <div class="level-card lc2">
+        <div class="ln">N2</div>
+        <div class="lname">Alta Prioridade</div>
+        <div class="ldesc">Resposta no mesmo dia. Cliente recorrente, pendência financeira, prazo implícito.</div>
+        <div class="laction">→ Pasta Alta-Prioridade + Rascunho</div>
+      </div>
+      <div class="level-card lc3">
+        <div class="ln">N3</div>
+        <div class="lname">Normal</div>
+        <div class="ldesc">Resposta em até 2 dias. Dúvida técnica, solicitação sem urgência.</div>
+        <div class="laction">→ Pasta Normal + Rascunho</div>
+      </div>
+      <div class="level-card lc4">
+        <div class="ln">N4</div>
+        <div class="lname">Baixa</div>
+        <div class="ldesc">Pode aguardar. Informativo, newsletter, atualização sem ação necessária.</div>
+        <div class="laction">→ Pasta Baixa + Rascunho</div>
+      </div>
+      <div class="level-card lc5">
+        <div class="ln">N5</div>
+        <div class="lname">Irrelevante</div>
+        <div class="ldesc">Spam, automáticos, marketing sem relevância.</div>
+        <div class="laction">→ Pasta Irrelevante (sem rascunho)</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div class="section">
+      <h2>Stack Técnica</h2>
+      <div class="stack-grid">
+        <div class="stack-item"><div class="layer">Leitura de Email</div><div class="tool">ImapFlow</div><div class="desc">Node.js · CSC Empresarial</div></div>
+        <div class="stack-item"><div class="layer">Backend / Banco</div><div class="tool">Convex</div><div class="desc">Real-time DB + queries reativas</div></div>
+        <div class="stack-item"><div class="layer">Classificação</div><div class="tool">Claude Haiku 4.5</div><div class="desc">Rápido e econômico</div></div>
+        <div class="stack-item"><div class="layer">Rascunho / Escalada</div><div class="tool">Claude Sonnet 4.6</div><div class="desc">Alta confiança + qualidade</div></div>
+        <div class="stack-item"><div class="layer">Embeddings / RAG</div><div class="tool">Voyage AI</div><div class="desc">voyage-3-lite</div></div>
+        <div class="stack-item"><div class="layer">Notificação</div><div class="tool">SMTP</div><div class="desc">CSC Empresarial (reflexão mensal)</div></div>
+        <div class="stack-item"><div class="layer">Worker Persistente</div><div class="tool">Railway</div><div class="desc">Restart automático</div></div>
+        <div class="stack-item"><div class="layer">DNS / CDN</div><div class="tool">Cloudflare</div><div class="desc">Proteção e entrega</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Restrições Críticas</h2>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="callout red"><span>🚫</span><span>Sem conectores Microsoft — nada de Graph API, Azure AD, Outlook ou Teams</span></div>
+        <div class="callout red"><span>🚫</span><span>Sem migração de servidor de email — funcionário não percebe mudança alguma</span></div>
+        <div class="callout red"><span>🚫</span><span>Nenhum rascunho enviado automaticamente — sempre revisão humana</span></div>
+        <div class="callout red"><span>🚫</span><span>Worker IMAP deve reconectar antes de 29 min (RFC 2177)</span></div>
+      </div>
+      <h3>Modelo de aprendizado</h3>
+      <div class="callout blue"><span>✓</span><span><strong>In-context learning</strong> com perfil + RAG. Sem fine-tuning. Auditável, adaptável por funcionário, sem ciclos de retreino.</span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== TAB: CRONOGRAMA ===== -->
+<div id="tab-cronograma" class="tab-content">
+
+  <div class="section" style="margin-bottom:20px">
+    <h2>Resumo Geral</h2>
+    <table>
+      <tr><th>Dia</th><th>Foco</th><th>Tarefas</th><th>Horas</th><th>Critério de Saída</th></tr>
+      <tr><td><span class="badge badge-dia1">Dia 1</span></td><td>Setup + pendências externas + IMAP</td><td>T01–T10</td><td><strong>18h</strong></td><td>Worker conecta, detecta emails, reconecta automaticamente</td></tr>
+      <tr><td><span class="badge badge-dia2">Dia 2</span></td><td>Normalizador + pré-classificador</td><td>T11–T14</td><td><strong>8h</strong></td><td>Normalizador 95%+; pré-classificador resolve blacklist sem chamar API</td></tr>
+      <tr><td><span class="badge badge-dia3">Dia 3</span></td><td>Claude API + geração de rascunho</td><td>T15–T22</td><td><strong>12h</strong></td><td>Email → classificado → rascunho na caixa em &lt; 30 segundos</td></tr>
+      <tr><td><span class="badge badge-dia4">Dia 4</span></td><td>Ações + feedback + go-live</td><td>T23–T30</td><td><strong>15h</strong></td><td>Taxa de aceitação ≥ 70% após ajuste inicial de prompts</td></tr>
+      <tr><td><span class="badge badge-dia5">Dia 5</span></td><td>RAG de correções + style card</td><td>T31–T40</td><td><strong>15h</strong></td><td>Few-shot RAG ativo; style card por funcionário; rascunhos com tom individual</td></tr>
+      <tr><td><span class="badge badge-dia6">Dia 6</span></td><td>Dashboard + reflexão mensal + rollout</td><td>T41–T46</td><td><strong>12h</strong></td><td>Dashboard acessível; reflexão mensal rodando; onboarding em &lt; 15 min</td></tr>
+      <tr style="background:#f8fafc"><td colspan="3"><strong>Total</strong></td><td><strong>80h</strong></td><td></td></tr>
+    </table>
+  </div>
+
+  <div class="schedule-grid">
+
+    <div class="day-card d1">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <h3>Dia 1</h3>
+          <div class="goal">Setup, pendências externas e infraestrutura IMAP</div>
+        </div>
+        <div class="hours-big">18h</div>
+      </div>
+      <ul class="day-tasks">
+        <li><span class="tid">T01</span><span>Confirmar credenciais SMTP no CSC Empresarial</span><span class="th">1h</span></li>
+        <li><span class="tid">T02</span><span>Confirmar IMAP IDLE no CSC Empresarial</span><span class="th">1h</span></li>
+        <li><span class="tid">T03</span><span>Avaliação jurídica LGPD</span><span class="th">3h</span></li>
+        <li><span class="tid">T04</span><span>Definir política de retenção no Convex</span><span class="th">1h</span></li>
+        <li><span class="tid">T05</span><span>Assinar DPA com Anthropic (se exigido)</span><span class="th">3h</span></li>
+        <li><span class="tid">T06</span><span>Criar projeto Convex + schema completo</span><span class="th">2h</span></li>
+        <li><span class="tid">T07</span><span>Seed data do funcionário piloto</span><span class="th">1h</span></li>
+        <li><span class="tid">T08</span><span>Setup worker Railway + variáveis de ambiente</span><span class="th">1h</span></li>
+        <li><span class="tid">T09</span><span>Implementar conexão IMAP IDLE</span><span class="th">3h</span></li>
+        <li><span class="tid">T10</span><span>Teste de estabilidade IMAP 24h</span><span class="th">2h</span></li>
+      </ul>
+      <div class="criteria">✓ Worker conecta, detecta emails, reconecta automaticamente</div>
+    </div>
+
+    <div class="day-card d2">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <h3>Dia 2</h3>
+          <div class="goal">Normalizador + pré-classificador + prompts</div>
+        </div>
+        <div class="hours-big">8h</div>
+      </div>
+      <ul class="day-tasks">
+        <li><span class="tid">T11</span><span>Implementar normalizador de email</span><span class="th">3h</span></li>
+        <li><span class="tid">T12</span><span>Testes com 50 emails reais</span><span class="th">2h</span></li>
+        <li><span class="tid">T13</span><span>Implementar pré-classificador determinístico</span><span class="th">2h</span></li>
+        <li><span class="tid">T14</span><span>Criar prompts de classificação v1</span><span class="th">1h</span></li>
+      </ul>
+      <div class="criteria">✓ Normalizador 95%+; pré-classificador resolve blacklist sem API</div>
+    </div>
+
+    <div class="day-card d3">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <h3>Dia 3</h3>
+          <div class="goal">Integração Claude API e geração de rascunho</div>
+        </div>
+        <div class="hours-big">12h</div>
+      </div>
+      <ul class="day-tasks">
+        <li><span class="tid">T15</span><span>Builder de prompt de classificação</span><span class="th">2h</span></li>
+        <li><span class="tid">T16</span><span>Chamada Claude API (haiku)</span><span class="th">2h</span></li>
+        <li><span class="tid">T17</span><span>Confidence score + escalada para sonnet</span><span class="th">1h</span></li>
+        <li><span class="tid">T18</span><span>Retry com backoff exponencial</span><span class="th">1h</span></li>
+        <li><span class="tid">T19</span><span>Criar prompt de rascunho v1</span><span class="th">1h</span></li>
+        <li><span class="tid">T20</span><span>Geração de rascunho (sonnet)</span><span class="th">2h</span></li>
+        <li><span class="tid">T21</span><span>IMAP APPEND — salvar rascunho na caixa</span><span class="th">2h</span></li>
+        <li><span class="tid">T22</span><span>Registro completo no Convex</span><span class="th">1h</span></li>
+      </ul>
+      <div class="criteria">✓ Email → classificado → rascunho na caixa em &lt; 30 segundos</div>
+    </div>
+
+    <div class="day-card d4">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <h3>Dia 4</h3>
+          <div class="goal">Ações, feedback via IMAP MOVE e go-live piloto</div>
+        </div>
+        <div class="hours-big">15h</div>
+      </div>
+      <ul class="day-tasks">
+        <li><span class="tid">T23</span><span>Executor de ações por nível (IMAP MOVE)</span><span class="th">2h</span></li>
+        <li><span class="tid">T24</span><span>Monitoramento de MOVE entre pastas Fast/*</span><span class="th">2h</span></li>
+        <li><span class="tid">T25</span><span>Endpoint de feedback POST</span><span class="th">1h</span></li>
+        <li><span class="tid">T26</span><span>Formulário web de feedback (fallback)</span><span class="th">1h</span></li>
+        <li><span class="tid">T27</span><span>Salvar correções no Convex</span><span class="th">1h</span></li>
+        <li><span class="tid">T28</span><span>Health check do worker</span><span class="th">1h</span></li>
+        <li><span class="tid">T29</span><span>Teste end-to-end do pipeline completo</span><span class="th">3h</span></li>
+        <li><span class="tid">T30</span><span>Go-live piloto + ajuste de prompt</span><span class="th">4h</span></li>
+      </ul>
+      <div class="criteria">✓ Taxa de aceitação ≥ 70% após ajuste inicial</div>
+    </div>
+
+    <div class="day-card d5">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <h3>Dia 5</h3>
+          <div class="goal">RAG de correções e style card individual</div>
+        </div>
+        <div class="hours-big">15h</div>
+      </div>
+      <ul class="day-tasks">
+        <li><span class="tid">T31</span><span>Setup Voyage AI + geração de embeddings</span><span class="th">1h</span></li>
+        <li><span class="tid">T32</span><span>Pipeline assíncrono de embeddings</span><span class="th">2h</span></li>
+        <li><span class="tid">T33</span><span>Backfill embeddings do Dia 4</span><span class="th">1h</span></li>
+        <li><span class="tid">T34</span><span>Busca por similaridade coseno</span><span class="th">2h</span></li>
+        <li><span class="tid">T35</span><span>Injetar few-shot RAG no prompt</span><span class="th">1h</span></li>
+        <li><span class="tid">T36</span><span>Criar prompt de extração de estilo</span><span class="th">1h</span></li>
+        <li><span class="tid">T37</span><span>Extração inicial de style card</span><span class="th">2h</span></li>
+        <li><span class="tid">T38</span><span>Rotina semanal de atualização de estilo</span><span class="th">2h</span></li>
+        <li><span class="tid">T39</span><span>Captura diff rascunho × enviado</span><span class="th">2h</span></li>
+        <li><span class="tid">T40</span><span>Injetar style card no prompt de rascunho</span><span class="th">1h</span></li>
+      </ul>
+      <div class="criteria">✓ Few-shot RAG ativo; style card por funcionário; rascunhos individualizados</div>
+    </div>
+
+    <div class="day-card d6">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <h3>Dia 6</h3>
+          <div class="goal">Dashboard, reflexão mensal e rollout</div>
+        </div>
+        <div class="hours-big">12h</div>
+      </div>
+      <ul class="day-tasks">
+        <li><span class="tid">T41</span><span>Queries de métricas no Convex</span><span class="th">2h</span></li>
+        <li><span class="tid">T42</span><span>Criar dashboard de métricas</span><span class="th">2h</span></li>
+        <li><span class="tid">T43</span><span>Rotina de reflexão mensal</span><span class="th">2h</span></li>
+        <li><span class="tid">T44</span><span>Parametrizar worker para múltiplos usuários</span><span class="th">2h</span></li>
+        <li><span class="tid">T45</span><span>Scripts de onboarding de novo funcionário</span><span class="th">2h</span></li>
+        <li><span class="tid">T46</span><span>Documentação de operação (runbook)</span><span class="th">2h</span></li>
+      </ul>
+      <div class="criteria">✓ Dashboard acessível; onboarding em &lt; 15 min</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Marcos Principais</h2>
+    <div class="milestones">
+      <div class="milestone"><div class="m-day">Dia 1</div><div><div class="m-text">Pendências externas resolvidas</div><div class="m-crit">TI + Jurídico confirmados</div></div></div>
+      <div class="milestone"><div class="m-day">Dia 1</div><div><div class="m-text">IMAP conectado e estável</div><div class="m-crit">24h sem drops</div></div></div>
+      <div class="milestone"><div class="m-day">Dia 3</div><div><div class="m-text">Pipeline MVP funcional</div><div class="m-crit">Email → classificado → rascunho &lt; 30s</div></div></div>
+      <div class="milestone"><div class="m-day">Dia 4</div><div><div class="m-text">Piloto go-live</div><div class="m-crit">Funcionário piloto ativo</div></div></div>
+      <div class="milestone"><div class="m-day">Dia 4–5</div><div><div class="m-text">Taxa de aceitação ≥ 70%</div><div class="m-crit">2 ciclos consecutivos</div></div></div>
+      <div class="milestone"><div class="m-day">Dia 5</div><div><div class="m-text">RAG ativo</div><div class="m-crit">Few-shot injetado por funcionário</div></div></div>
+      <div class="milestone"><div class="m-day">Dia 5</div><div><div class="m-text">Style card ativo</div><div class="m-crit">Rascunhos com tom individual</div></div></div>
+      <div class="milestone"><div class="m-day">Dia 6</div><div><div class="m-text">Rollout pronto</div><div class="m-crit">Onboarding em &lt; 15 min</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: BACKLOG ===== -->
+<div id="tab-backlog" class="tab-content">
+
+  <div class="section">
+    <h2>Backlog Completo — 47 tarefas · 80h executáveis</h2>
+
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="filterTasks('all',this)">Todas (47)</button>
+      <button class="filter-btn" onclick="filterTasks('pre',this)">Pré-MVP (5)</button>
+      <button class="filter-btn" onclick="filterTasks('f1',this)">Fase 1 MVP (25)</button>
+      <button class="filter-btn" onclick="filterTasks('f2',this)">Fase 2 Aprendizado (13)</button>
+      <button class="filter-btn" onclick="filterTasks('f3',this)">Fase 3 Rollout (3)</button>
+      <button class="filter-btn" onclick="filterTasks('f6',this)">Fase 6 Futuro (7)</button>
+      <button class="filter-btn" onclick="filterTasks('p1',this)">Só P1</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Fase</th><th>Nome</th><th>Descrição</th><th>Prioridade</th><th>Horas</th><th>Dependências</th></tr>
+      </thead>
+      <tbody id="tasks-tbody">
+        <!-- PRÉ-MVP -->
+        <tr class="task-row" data-fase="pre" data-prio="p1"><td>T01</td><td><span class="badge badge-pre">Pré-MVP</span></td><td>Confirmar credenciais SMTP no CSC Empresarial</td><td>Obter host, porta e credenciais SMTP para envio de notificação da reflexão mensal ao funcionário.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>—</td></tr>
+        <tr class="task-row" data-fase="pre" data-prio="p1"><td>T02</td><td><span class="badge badge-pre">Pré-MVP</span></td><td>Confirmar IMAP IDLE no CSC</td><td>Conectar ao CSC Empresarial, validar IDLE estável, testar reconexão após 29 min.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>—</td></tr>
+        <tr class="task-row" data-fase="pre" data-prio="p1"><td>T03</td><td><span class="badge badge-pre">Pré-MVP</span></td><td>Avaliação jurídica LGPD</td><td>Apresentar ao jurídico: conteúdo de emails será enviado à Claude API (Anthropic, EUA). Obter parecer.</td><td><span class="badge badge-p1">P1</span></td><td>3h</td><td>—</td></tr>
+        <tr class="task-row" data-fase="pre" data-prio="p1"><td>T04</td><td><span class="badge badge-pre">Pré-MVP</span></td><td>Política de retenção no Convex</td><td>Definir com TI e jurídico: tempo de retenção, acesso e exclusão de emails processados.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>T03</td></tr>
+        <tr class="task-row" data-fase="pre" data-prio="p1"><td>T05</td><td><span class="badge badge-pre">Pré-MVP</span></td><td>Assinar DPA com Anthropic</td><td>Se jurídico exigir: iniciar processo de Data Processing Agreement com Anthropic antes do go-live.</td><td><span class="badge badge-p1">P1</span></td><td>3h</td><td>T03</td></tr>
+        <!-- FASE 1 SPRINT 1 -->
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T06</td><td><span class="badge badge-f1">Fase 1 — S1</span></td><td>Criar projeto no Convex</td><td>Schema completo: funcionarios, perfis, style_cards, emails_processados, correcoes, remetentes.</td><td><span class="badge badge-p1">P1</span></td><td>2h</td><td>T04</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T07</td><td><span class="badge badge-f1">Fase 1 — S1</span></td><td>Seed data do funcionário piloto</td><td>Inserir registro do piloto: funcionarios, perfis vazio, style_cards com padrão Fast.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>T06</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T08</td><td><span class="badge badge-f1">Fase 1 — S1</span></td><td>Setup worker no Railway</td><td>Node.js no Railway, restart automático, todas as variáveis de ambiente configuradas.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>—</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T09</td><td><span class="badge badge-f1">Fase 1 — S1</span></td><td>Implementar conexão IMAP IDLE</td><td>ImapFlow, reconexão antes de 29 min (RFC 2177), listener de novos emails.</td><td><span class="badge badge-p1">P1</span></td><td>3h</td><td>T02, T08</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T10</td><td><span class="badge badge-f1">Fase 1 — S1</span></td><td>Teste de estabilidade IMAP 24h</td><td>Rodar por 24h sem intervenção. Verificar reconexão, ausência de drops silenciosos.</td><td><span class="badge badge-p1">P1</span></td><td>2h</td><td>T09</td></tr>
+        <!-- FASE 1 SPRINT 2 -->
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T11</td><td><span class="badge badge-f1">Fase 1 — S2</span></td><td>Implementar normalizador</td><td>Strip HTML, remoção de assinatura, detecção de idioma (franc), detecção de thread, extração de anexos. Saída: EmailNormalizado.</td><td><span class="badge badge-p1">P1</span></td><td>3h</td><td>T10</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T12</td><td><span class="badge badge-f1">Fase 1 — S2</span></td><td>Testes do normalizador</td><td>50 emails variados. Validar saída para cada tipo. Documentar edge cases.</td><td><span class="badge badge-p1">P1</span></td><td>2h</td><td>T11</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T13</td><td><span class="badge badge-f1">Fase 1 — S2</span></td><td>Pré-classificador determinístico</td><td>Lookup blacklist/whitelist no Convex. Guard rails globais Fast. Retorna {nivel, regraAplicada} quando decidido. Pula API.</td><td><span class="badge badge-p1">P1</span></td><td>2h</td><td>T06, T11</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T14</td><td><span class="badge badge-f1">Fase 1 — S2</span></td><td>Criar prompts de classificação v1</td><td>Pasta prompts/. Escrever classificacao.md: 5 níveis, critérios, 3 exemplos fixos por nível. Versionado em Git.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>—</td></tr>
+        <!-- FASE 1 SPRINT 3 -->
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T15</td><td><span class="badge badge-f1">Fase 1 — S3</span></td><td>Builder de prompt de classificação</td><td>Monta prompt: definição dos níveis + perfil do funcionário + histórico do remetente + email normalizado.</td><td><span class="badge badge-p1">P1</span></td><td>2h</td><td>T06, T13, T14</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T16</td><td><span class="badge badge-f1">Fase 1 — S3</span></td><td>Chamada à Claude API (haiku)</td><td>Chamar claude-haiku-4-5. Parse JSON retornado {nivel, confidence, justificativa}. Validação de schema.</td><td><span class="badge badge-p1">P1</span></td><td>2h</td><td>T15</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T17</td><td><span class="badge badge-f1">Fase 1 — S3</span></td><td>Confidence score e escalada</td><td>Se confidence &lt; 0.7: repetir com claude-sonnet-4-6. Registrar qual modelo foi usado.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>T16</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T18</td><td><span class="badge badge-f1">Fase 1 — S3</span></td><td>Retry com backoff exponencial</td><td>3 tentativas com delays 1s / 3s / 9s antes de declarar falha.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>T16</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T19</td><td><span class="badge badge-f1">Fase 1 — S3</span></td><td>Criar prompt de rascunho v1</td><td>prompts/rascunho.md: geração no idioma do remetente, tom corporativo padrão Fast.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>—</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T20</td><td><span class="badge badge-f1">Fase 1 — S3</span></td><td>Geração de rascunho</td><td>Chamar claude-sonnet-4-6 com style card padrão + email. Apenas para níveis 1–4.</td><td><span class="badge badge-p1">P1</span></td><td>2h</td><td>T17, T19</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T21</td><td><span class="badge badge-f1">Fase 1 — S3</span></td><td>IMAP APPEND de rascunho</td><td>Salvar rascunho como draft na pasta Drafts do funcionário via IMAP APPEND.</td><td><span class="badge badge-p1">P1</span></td><td>2h</td><td>T20</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T22</td><td><span class="badge badge-f1">Fase 1 — S3</span></td><td>Registro completo no Convex</td><td>Inserir em emails_processados com todos os campos incluindo promptVersion (hash do commit).</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>T17, T06</td></tr>
+        <!-- FASE 1 SPRINT 4 -->
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T23</td><td><span class="badge badge-f1">Fase 1 — S4</span></td><td>Executor de ações por nível</td><td>Criar pastas Fast/Urgente, Fast/Alta-Prioridade, Fast/Normal, Fast/Baixa, Fast/Irrelevante. IMAP MOVE por nível.</td><td><span class="badge badge-p1">P1</span></td><td>2h</td><td>T17</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T24</td><td><span class="badge badge-f1">Fase 1 — S4</span></td><td>Monitoramento de MOVE entre pastas Fast/*</td><td>Listener de eventos MOVE paralelo ao IDLE. Mapeia pastas Fast/* para níveis. Filtra MOVEs irrelevantes (fora de Fast/* ou mesmo nível).</td><td><span class="badge badge-p1">P1</span></td><td>2h</td><td>T23</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T25</td><td><span class="badge badge-f1">Fase 1 — S4</span></td><td>Processar MOVE como sinal de correção</td><td>Busca messageId no Convex, extrai nivelOriginal e nivelCorrigido, insere em correcoes, recalcula nivelMedio do remetente.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>T24</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T26</td><td><span class="badge badge-f1">Fase 1 — S4</span></td><td>Formulário web de feedback</td><td>HTML leve (fallback): exibe 5 níveis, funcionário seleciona e confirma.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>T25</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T27</td><td><span class="badge badge-f1">Fase 1 — S4</span></td><td>Salvar correções no Convex</td><td>Inserir em correcoes, atualizar nivelCorrigido em emails_processados, recalcular nivelMedio do remetente.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>T25, T06</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T28</td><td><span class="badge badge-f1">Fase 1 — S4</span></td><td>Health check do worker</td><td>A cada 5 min: heartbeat no Convex. Railway detecta ausência e reinicia automaticamente, notificando o desenvolvedor via email/dashboard nativo.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>T08</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T29</td><td><span class="badge badge-f1">Fase 1 — S4</span></td><td>Teste end-to-end</td><td>Validar fluxo completo: email → classificado → pasta → rascunho → alerta (N1) → feedback salvo.</td><td><span class="badge badge-p1">P1</span></td><td>3h</td><td>T23, T24, T27</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T30</td><td><span class="badge badge-f1">Fase 1 — S4</span></td><td>Go-live piloto + ajuste de prompt</td><td>Ativar para 1 funcionário piloto por 1 semana. Coletar correções, analisar padrões, ajustar prompts.</td><td><span class="badge badge-p1">P1</span></td><td>4h</td><td>T29</td></tr>
+        <!-- FASE 2 SPRINT 5 -->
+        <tr class="task-row" data-fase="f2" data-prio="p2"><td>T31</td><td><span class="badge badge-f2">Fase 2 — S5</span></td><td>Setup Voyage AI + embeddings</td><td>Conta Voyage AI, API key. Embedding com voyage-3-lite. Input: assunto + corpo (512 tokens).</td><td><span class="badge badge-p2">P2</span></td><td>1h</td><td>T30</td></tr>
+        <tr class="task-row" data-fase="f2" data-prio="p2"><td>T32</td><td><span class="badge badge-f2">Fase 2 — S5</span></td><td>Pipeline assíncrono de embeddings</td><td>Job após cada nova correção: gera embedding e salva em correcoes.embedding.</td><td><span class="badge badge-p2">P2</span></td><td>2h</td><td>T31, T27</td></tr>
+        <tr class="task-row" data-fase="f2" data-prio="p2"><td>T33</td><td><span class="badge badge-f2">Fase 2 — S5</span></td><td>Backfill de embeddings</td><td>Script one-shot: gera embeddings para todas as correções salvas durante o piloto da Fase 1.</td><td><span class="badge badge-p2">P2</span></td><td>1h</td><td>T32</td></tr>
+        <tr class="task-row" data-fase="f2" data-prio="p2"><td>T34</td><td><span class="badge badge-f2">Fase 2 — S5</span></td><td>Busca por similaridade coseno</td><td>Top-5 correções similares por funcionarioId. Coseno manual sobre array no Convex (ou Vector Search).</td><td><span class="badge badge-p2">P2</span></td><td>2h</td><td>T32</td></tr>
+        <tr class="task-row" data-fase="f2" data-prio="p2"><td>T35</td><td><span class="badge badge-f2">Fase 2 — S5</span></td><td>Injetar few-shot RAG</td><td>Atualizar builder do prompt para buscar e injetar top-3 a top-5 exemplos. Registrar fewShotIds no Convex.</td><td><span class="badge badge-p2">P2</span></td><td>1h</td><td>T34, T15</td></tr>
+        <!-- FASE 2 SPRINT 6 -->
+        <tr class="task-row" data-fase="f2" data-prio="p2"><td>T36</td><td><span class="badge badge-f2">Fase 2 — S6</span></td><td>Prompt de extração de estilo</td><td>prompts/style_extraction.md: saudação, despedida, formalidade, comprimento médio, vocabulário.</td><td><span class="badge badge-p2">P2</span></td><td>1h</td><td>—</td></tr>
+        <tr class="task-row" data-fase="f2" data-prio="p2"><td>T37</td><td><span class="badge badge-f2">Fase 2 — S6</span></td><td>Extração inicial de style card</td><td>Ler 50 emails enviados via IMAP, filtrar automáticos/forwards, chamar sonnet, salvar no Convex.</td><td><span class="badge badge-p2">P2</span></td><td>2h</td><td>T36, T06</td></tr>
+        <tr class="task-row" data-fase="f2" data-prio="p2"><td>T38</td><td><span class="badge badge-f2">Fase 2 — S6</span></td><td>Rotina semanal de style card</td><td>Cron semanal: leitura Enviados → extração → diff com atual → atualiza só se mudança &gt; 20%.</td><td><span class="badge badge-p2">P2</span></td><td>2h</td><td>T37</td></tr>
+        <tr class="task-row" data-fase="f2" data-prio="p2"><td>T39</td><td><span class="badge badge-f2">Fase 2 — S6</span></td><td>Captura diff rascunho × enviado</td><td>Monitorar Enviados por 72h após salvar rascunho. Ao detectar: calcular diff como sinal prioritário.</td><td><span class="badge badge-p2">P2</span></td><td>2h</td><td>T21, T37</td></tr>
+        <tr class="task-row" data-fase="f2" data-prio="p2"><td>T40</td><td><span class="badge badge-f2">Fase 2 — S6</span></td><td>Injetar style card no rascunho</td><td>Atualizar builder do prompt de rascunho para incluir style card do funcionário do Convex.</td><td><span class="badge badge-p2">P2</span></td><td>1h</td><td>T37</td></tr>
+        <!-- FASE 2 SPRINT 7 -->
+        <tr class="task-row" data-fase="f2" data-prio="p2"><td>T41</td><td><span class="badge badge-f2">Fase 2 — S7</span></td><td>Queries de métricas no Convex</td><td>Taxa de aceitação, tempo N1→leitura, distância de edição de rascunho, correções/semana, taxa de fallback.</td><td><span class="badge badge-p2">P2</span></td><td>2h</td><td>T06, T29</td></tr>
+        <tr class="task-row" data-fase="f2" data-prio="p2"><td>T42</td><td><span class="badge badge-f2">Fase 2 — S7</span></td><td>Criar dashboard de métricas</td><td>Painel simples (Convex HTTP action + HTML ou React mínimo) por funcionário.</td><td><span class="badge badge-p2">P2</span></td><td>2h</td><td>T41</td></tr>
+        <tr class="task-row" data-fase="f2" data-prio="p2"><td>T43</td><td><span class="badge badge-f2">Fase 2 — S7</span></td><td>Rotina de reflexão mensal</td><td>Cron mensal: analisa correções → Claude identifica padrões → aplica whitelist/guard rails automaticamente → registra blacklist como pendente → notifica funcionário via SMTP.</td><td><span class="badge badge-p2">P2</span></td><td>2h</td><td>T25, T35</td></tr>
+        <!-- FASE 3 -->
+        <tr class="task-row" data-fase="f3" data-prio="p2"><td>T44</td><td><span class="badge badge-f3">Fase 3</span></td><td>Parametrizar worker — múltiplos usuários</td><td>Remover hardcode. Worker recebe funcionarioId como parâmetro. N instâncias independentes.</td><td><span class="badge badge-p2">P2</span></td><td>2h</td><td>T30</td></tr>
+        <tr class="task-row" data-fase="f3" data-prio="p2"><td>T45</td><td><span class="badge badge-f3">Fase 3</span></td><td>Scripts de onboarding</td><td>CLI: cria funcionário + perfil vazio + style card padrão Fast. Ativa worker no Railway.</td><td><span class="badge badge-p2">P2</span></td><td>2h</td><td>T44, T06</td></tr>
+        <tr class="task-row" data-fase="f3" data-prio="p2"><td>T46</td><td><span class="badge badge-f3">Fase 3</span></td><td>Documentação de operação</td><td>Guia de onboarding, runbook de troubleshooting, guia de atualização de prompts sem redeploy.</td><td><span class="badge badge-p2">P2</span></td><td>2h</td><td>T44</td></tr>
+        <!-- FASE 6 -->
+        <tr class="task-row" data-fase="f6" data-prio="p3"><td>T47</td><td><span class="badge badge-f6">Fase 6</span></td><td>Interface de gestão TI</td><td>Painel web: workers ativos, funcionários, whitelist/blacklist/guard rails, últimas classificações.</td><td><span class="badge badge-p3">P3</span></td><td>4h</td><td>—</td></tr>
+        <tr class="task-row" data-fase="f6" data-prio="p3"><td>T48</td><td><span class="badge badge-f6">Fase 6</span></td><td>Múltiplos servidores IMAP</td><td>Permitir funcionários com caixas em servidores diferentes no mesmo sistema.</td><td><span class="badge badge-p3">P3</span></td><td>2h</td><td>—</td></tr>
+        <tr class="task-row" data-fase="f6" data-prio="p3"><td>T49</td><td><span class="badge badge-f6">Fase 6</span></td><td>Análise de sentimento</td><td>Detectar frustração ou urgência emocional no corpo do email para elevar prioridade.</td><td><span class="badge badge-p3">P3</span></td><td>2h</td><td>—</td></tr>
+        <tr class="task-row" data-fase="f6" data-prio="p3"><td>T50</td><td><span class="badge badge-f6">Fase 6</span></td><td>Integração com calendário</td><td>Cruzar datas do email com calendário do funcionário para detectar conflitos de agenda.</td><td><span class="badge badge-p3">P3</span></td><td>3h</td><td>—</td></tr>
+        <tr class="task-row" data-fase="f6" data-prio="p3"><td>T51</td><td><span class="badge badge-f6">Fase 6</span></td><td>Dashboard avançado</td><td>Gráficos de evolução de métricas ao longo do tempo. Comparação entre funcionários.</td><td><span class="badge badge-p3">P3</span></td><td>3h</td><td>—</td></tr>
+        <tr class="task-row" data-fase="f6" data-prio="p3"><td>T52</td><td><span class="badge badge-f6">Fase 6</span></td><td>Email de resumo diário (configurável)</td><td>Email diário ao funcionário com lista de emails classificados no dia (remetente, assunto, nível), ativável por funcionário.</td><td><span class="badge badge-p3">P3</span></td><td>2h</td><td>—</td></tr>
+        <tr class="task-row" data-fase="f6" data-prio="p3"><td>T53</td><td><span class="badge badge-f6">Fase 6</span></td><td>Leitura de PDFs em anexo</td><td>Extrair texto de PDFs simples para incluir no contexto de classificação.</td><td><span class="badge badge-p3">P3</span></td><td>2h</td><td>—</td></tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top:16px;padding:14px;background:#f8fafc;border-radius:10px;display:flex;gap:32px;font-size:13px">
+      <div><strong>Total executável:</strong> 46 tarefas · 80h</div>
+      <div><strong>Fase 6 (futuro):</strong> 7 tarefas · 18h</div>
+      <div><strong>P1:</strong> <span style="color:#dc2626">25 tarefas</span></div>
+      <div><strong>P2:</strong> <span style="color:#1d4ed8">21 tarefas</span></div>
+      <div><strong>P3:</strong> <span style="color:#6b7280">7 tarefas</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: FLUXOS ===== -->
+<div id="tab-fluxos" class="tab-content">
+
+  <div class="flows-grid">
+
+    <div class="flow-card">
+      <div class="flow-header">
+        <div class="flow-icon" style="background:#eff6ff">⚡</div>
+        <div>
+          <h3>F1 — Pipeline Principal de Classificação</h3>
+          <div class="trigger">Gatilho: novo email via IMAP IDLE · &lt; 30 segundos · por email recebido</div>
+        </div>
+      </div>
+      <ul class="flow-steps">
+        <li><div class="step-num" style="background:#dbeafe;color:#1e40af">1</div><div>IMAP IDLE notifica chegada de email</div></li>
+        <li><div class="step-num" style="background:#dbeafe;color:#1e40af">2</div><div>Worker baixa email completo via IMAP FETCH (envelope, body, headers, attachments)</div></li>
+        <li><div class="step-num" style="background:#dbeafe;color:#1e40af">3</div><div><strong>Normalizador:</strong> strip HTML → remoção de assinatura → detecção de idioma → thread context → metadados de anexos → EmailNormalizado</div></li>
+        <li><div class="step-num" style="background:#dbeafe;color:#1e40af">4</div><div><strong>Pré-classificador:</strong> blacklist? → nível 5 direto. Whitelist? → piso garantido. Guard rail? → piso/teto definido.</div></li>
+        <li><div class="step-num" style="background:#dbeafe;color:#1e40af">5</div><div>Consulta Convex: carrega perfil, histórico do remetente e top-5 correções similares (RAG Fase 2+)</div></li>
+        <li><div class="step-num" style="background:#dbeafe;color:#1e40af">6</div><div><strong>Claude Haiku:</strong> classifica com JSON {nivel, confidence, justificativa}. Se confidence &lt; 0.7 → escala para Sonnet</div></li>
+        <li><div class="step-num" style="background:#dbeafe;color:#1e40af">7</div><div><strong>Rascunho (N1–N4):</strong> Claude Sonnet com style card → salva em Drafts via IMAP APPEND</div></li>
+        <li><div class="step-num" style="background:#dbeafe;color:#1e40af">8</div><div><strong>Executor de ações:</strong> IMAP MOVE para pasta correta (Fast/Urgente, Alta-Prioridade, Normal, Baixa, Irrelevante)</div></li>
+        <li><div class="step-num" style="background:#dbeafe;color:#1e40af">9</div><div>Registro completo no Convex (emails_processados com promptVersion)</div></li>
+      </ul>
+      <div class="flow-integrations">
+        <span class="int-tag">Claude Haiku + Sonnet</span>
+        <span class="int-tag">Convex</span>
+        <span class="int-tag">IMAP IDLE/FETCH/MOVE/APPEND</span>
+        <span class="int-tag">Voyage AI (Fase 2+)</span>
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-header">
+        <div class="flow-icon" style="background:#f0fdf4">🔄</div>
+        <div>
+          <h3>F2 — Loop de Feedback via IMAP MOVE</h3>
+          <div class="trigger">Gatilho: funcionário move email entre pastas Fast/* · por MOVE detectado</div>
+        </div>
+      </div>
+      <ul class="flow-steps">
+        <li><div class="step-num" style="background:#d1fae5;color:#065f46">1</div><div>Worker detecta evento MOVE via IMAP — email saiu de Fast/[Origem] e entrou em Fast/[Destino]</div></li>
+        <li><div class="step-num" style="background:#d1fae5;color:#065f46">2</div><div>Mapeia pastas para níveis: Urgente=1, Alta-Prioridade=2, Normal=3, Baixa=4, Irrelevante=5. Origem = Destino? → ignora</div></li>
+        <li><div class="step-num" style="background:#d1fae5;color:#065f46">3</div><div>Busca messageId no Convex. Não encontrado → ignora. Encontrado → segue</div></li>
+        <li><div class="step-num" style="background:#d1fae5;color:#065f46">4</div><div>Atualiza emails_processados: nivelCorrigido + aceitoSemCorrecao = false</div></li>
+        <li><div class="step-num" style="background:#d1fae5;color:#065f46">5</div><div>Insere em correcoes: funcionarioId, emailId, nivelOriginal, nivelCorrigido, timestamp</div></li>
+        <li><div class="step-num" style="background:#d1fae5;color:#065f46">6</div><div>Job assíncrono (Fase 2+): gera embedding via Voyage AI, salva em correcoes.embedding. Recalcula nivelMedio do remetente</div></li>
+      </ul>
+      <div style="margin-top:10px;padding:10px;background:#f0fdf4;border-radius:8px;font-size:11px;color:#065f46">
+        <strong>Zero atrito para o funcionário:</strong> nenhuma ação extra — reorganizar a caixa normalmente já é o sinal de correção.
+      </div>
+      <div class="flow-integrations">
+        <span class="int-tag">IMAP MOVE (detector)</span>
+        <span class="int-tag">Convex</span>
+        <span class="int-tag">Voyage AI (Fase 2+)</span>
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-header">
+        <div class="flow-icon" style="background:#fff7ed">🎨</div>
+        <div>
+          <h3>F3 — Atualização Semanal de Style Card</h3>
+          <div class="trigger">Gatilho: cron semanal — domingo 02:00 · 1x/semana por funcionário</div>
+        </div>
+      </div>
+      <ul class="flow-steps">
+        <li><div class="step-num" style="background:#fef3c7;color:#92400e">1</div><div>Cron dispara para cada funcionário ativo</div></li>
+        <li><div class="step-num" style="background:#fef3c7;color:#92400e">2</div><div>Lê últimos 50 emails da pasta Enviados. Filtra forwards, automáticos e emails curtos (&lt; 20 palavras)</div></li>
+        <li><div class="step-num" style="background:#fef3c7;color:#92400e">3</div><div>Se menos de 5 emails relevantes → encerra sem atualizar</div></li>
+        <li><div class="step-num" style="background:#fef3c7;color:#92400e">4</div><div>Claude Sonnet extrai: saudação, despedida, formalidade, comprimento médio, vocabulário, fechamentos</div></li>
+        <li><div class="step-num" style="background:#fef3c7;color:#92400e">5</div><div>Calcula diff com style card atual. Se mudança &lt; 20% → encerra (ruído, não sinal)</div></li>
+        <li><div class="step-num" style="background:#fef3c7;color:#92400e">6</div><div>Salva novo style card no Convex: incrementa versão + registra updatedAt</div></li>
+      </ul>
+      <div style="margin-top:10px;padding:10px;background:#fff7ed;border-radius:8px;font-size:11px;color:#c2410c">
+        <strong>Sinal forte paralelo:</strong> worker monitora Enviados por 72h após salvar rascunho. Se detecta resposta com mesmo threadId: calcula diff rascunho × enviado como sinal prioritário de estilo.
+      </div>
+      <div class="flow-integrations">
+        <span class="int-tag">Claude Sonnet</span>
+        <span class="int-tag">Convex</span>
+        <span class="int-tag">IMAP FETCH (Enviados)</span>
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-header">
+        <div class="flow-icon" style="background:#f5f3ff">🧠</div>
+        <div>
+          <h3>F4 — Reflexão Mensal de Perfil</h3>
+          <div class="trigger">Gatilho: cron mensal — 1º dia do mês 08:00 · 1x/mês por funcionário</div>
+        </div>
+      </div>
+      <ul class="flow-steps">
+        <li><div class="step-num" style="background:#ede9fe;color:#5b21b6">1</div><div>Cron dispara para cada funcionário ativo</div></li>
+        <li><div class="step-num" style="background:#ede9fe;color:#5b21b6">2</div><div>Consulta correções do mês anterior: agrupa por remetente e padrão de erro. Calcula taxa de aceitação.</div></li>
+        <li><div class="step-num" style="background:#ede9fe;color:#5b21b6">3</div><div>Se menos de 5 correções no mês → encerra (dados insuficientes)</div></li>
+        <li><div class="step-num" style="background:#ede9fe;color:#5b21b6">4</div><div>Claude Sonnet analisa padrões: remetentes sistematicamente reclassificados, tipos de erro recorrente, sugestões de regras novas</div></li>
+        <li><div class="step-num" style="background:#ede9fe;color:#5b21b6">5</div><div>Aplica mudanças automaticamente no Convex: whitelist, guard rails, padrões urgentes. Blacklist: registra como "pendente de confirmação" (não aplica — risco de ocultar emails importantes)</div></li>
+        <li><div class="step-num" style="background:#ede9fe;color:#5b21b6">6</div><div>Envia email de notificação ao funcionário via SMTP (CSC Empresarial): mudanças aplicadas + sugestões de blacklist aguardando confirmação manual</div></li>
+      </ul>
+      <div class="flow-integrations">
+        <span class="int-tag">Claude Sonnet</span>
+        <span class="int-tag">Convex</span>
+        <span class="int-tag">SMTP (notificação)</span>
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-header">
+        <div class="flow-icon" style="background:#fff5f5">🔴</div>
+        <div>
+          <h3>F5 — Fallback de Falha da Claude API</h3>
+          <div class="trigger">Gatilho: timeout ou erro após 3 tentativas · por falha</div>
+        </div>
+      </div>
+      <ul class="flow-steps">
+        <li><div class="step-num" style="background:#fee2e2;color:#991b1b">1</div><div>Chamada à Claude API falha</div></li>
+        <li><div class="step-num" style="background:#fee2e2;color:#991b1b">2</div><div>Retry com backoff exponencial: 1s → 3s → 9s. Todas falharam?</div></li>
+        <li><div class="step-num" style="background:#fee2e2;color:#991b1b">3</div><div>IMAP MOVE para pasta Fast/Pendente-Classificacao</div></li>
+        <li><div class="step-num" style="background:#fee2e2;color:#991b1b">4</div><div>Registra no Convex: nivelClassificado = null, status = "fallback"</div></li>
+        <li><div class="step-num" style="background:#fee2e2;color:#991b1b">5</div><div>Worker continua processando próximos emails — sem perda silenciosa</div></li>
+      </ul>
+      <div style="margin-top:10px;padding:10px;background:#fff5f5;border-radius:8px;font-size:11px;color:#991b1b">
+        <strong>Health check:</strong> heartbeat a cada 5 min no Convex. Railway detecta ausência e reinicia automaticamente, notificando o desenvolvedor via email/dashboard nativo.
+      </div>
+      <div class="flow-integrations">
+        <span class="int-tag">Convex</span>
+        <span class="int-tag">IMAP MOVE</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== TAB: ARQUITETURA ===== -->
+<div id="tab-arquitetura" class="tab-content">
+
+  <div class="section">
+    <h2>Diagrama Geral</h2>
+    <div style="background:#0f172a;border-radius:12px;padding:24px;font-family:monospace;font-size:12px;color:#94a3b8;line-height:1.8;overflow-x:auto">
+      <span style="color:#38bdf8">CSC Empresarial (IMAP)</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│ <span style="color:#64748b">IMAP IDLE — 1 conexão persistente por funcionário</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br>
+      <span style="color:#34d399">┌─────────────── Worker Node.js (Railway) ───────────────┐</span><br>
+      <span style="color:#34d399">│</span>&nbsp; <span style="color:#fbbf24">Normalizador</span> → <span style="color:#fbbf24">Pré-classificador determinístico</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#34d399">│</span><br>
+      <span style="color:#34d399">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│ (se não decidido)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#34d399">│</span><br>
+      <span style="color:#34d399">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#34d399">│</span><br>
+      <span style="color:#34d399">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#a78bfa">Orquestrador Claude API</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#34d399">│</span><br>
+      <span style="color:#34d399">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#34d399">│</span><br>
+      <span style="color:#34d399">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#f87171">Executor de ações por nível</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#34d399">│</span><br>
+      <span style="color:#34d399">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#34d399">│</span><br>
+      <span style="color:#34d399">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#fb923c">Capturador de style diff (async)</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#34d399">│</span><br>
+      <span style="color:#34d399">└────────────────────────────────────────────────────────┘</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;┌──────────┴──────────┐<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br>
+      <span style="color:#a78bfa">Claude API</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#38bdf8">Convex DB</span><br>
+      <span style="color:#64748b">haiku: classificação</span>&nbsp;&nbsp;&nbsp;<span style="color:#64748b">funcionarios / perfis</span><br>
+      <span style="color:#64748b">sonnet: rascunho</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#64748b">style_cards / emails</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#64748b">correcoes / remetentes</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#fb923c">SMTP (CSC Empresarial)</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#64748b">notificação reflexão mensal</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#34d399">Funcionário revisa e envia</span>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div class="section">
+      <h2>Schema Convex — 6 Tabelas</h2>
+      <div class="schema-grid">
+        <div class="schema-table">
+          <h4>funcionarios</h4>
+          <div class="field"><span>email</span><span class="ftype">string</span></div>
+          <div class="field"><span>nome</span><span class="ftype">string</span></div>
+          <div class="field"><span>areas</span><span class="ftype">string[]</span></div>
+          <div class="field"><span>ativo</span><span class="ftype">boolean</span></div>
+          <div class="field"><span>createdAt / updatedAt</span><span class="ftype">number</span></div>
+        </div>
+        <div class="schema-table">
+          <h4>perfis</h4>
+          <div class="field"><span>funcionarioId</span><span class="ftype">id</span></div>
+          <div class="field"><span>remetentes</span><span class="ftype">object[]</span></div>
+          <div class="field"><span>padroeUrgentes</span><span class="ftype">string[]</span></div>
+          <div class="field"><span>guardRails</span><span class="ftype">object[]</span></div>
+          <div class="field"><span>versao</span><span class="ftype">number</span></div>
+        </div>
+        <div class="schema-table">
+          <h4>style_cards</h4>
+          <div class="field"><span>funcionarioId</span><span class="ftype">id</span></div>
+          <div class="field"><span>saudacao / despedida</span><span class="ftype">string</span></div>
+          <div class="field"><span>formalidade</span><span class="ftype">string</span></div>
+          <div class="field"><span>comprimentoMedioWords</span><span class="ftype">number</span></div>
+          <div class="field"><span>vocabulario</span><span class="ftype">string[]</span></div>
+        </div>
+        <div class="schema-table">
+          <h4>emails_processados</h4>
+          <div class="field"><span>messageId / threadId</span><span class="ftype">string</span></div>
+          <div class="field"><span>nivelClassificado</span><span class="ftype">number</span></div>
+          <div class="field"><span>nivelCorrigido</span><span class="ftype">number?</span></div>
+          <div class="field"><span>confidenceScore</span><span class="ftype">number?</span></div>
+          <div class="field"><span>promptVersion</span><span class="ftype">string (git hash)</span></div>
+        </div>
+        <div class="schema-table">
+          <h4>correcoes</h4>
+          <div class="field"><span>funcionarioId</span><span class="ftype">id</span></div>
+          <div class="field"><span>emailId</span><span class="ftype">id</span></div>
+          <div class="field"><span>nivelOriginal → nivelCorrigido</span><span class="ftype">number</span></div>
+          <div class="field"><span>embedding</span><span class="ftype">float64[]?</span></div>
+          <div class="field"><span>timestamp</span><span class="ftype">number</span></div>
+        </div>
+        <div class="schema-table">
+          <h4>remetentes</h4>
+          <div class="field"><span>email / dominio</span><span class="ftype">string</span></div>
+          <div class="field"><span>totalEmails</span><span class="ftype">number</span></div>
+          <div class="field"><span>nivelMedio</span><span class="ftype">number</span></div>
+          <div class="field"><span>ultimaInteracao</span><span class="ftype">number</span></div>
+          <div class="field"><span>silencioProlongado</span><span class="ftype">boolean</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Decisões de Design</h2>
+      <table>
+        <tr><th>Decisão</th><th>Escolha</th><th>Razão</th></tr>
+        <tr><td>Sem fine-tuning</td><td><span class="decision-tag">In-context learning</span></td><td>Auditável, adaptável por funcionário, sem retreino</td></tr>
+        <tr><td>Dois modelos</td><td><span class="decision-tag">Haiku + Sonnet</span></td><td>Custo otimizado sem sacrificar qualidade nas saídas lidas pelo usuário</td></tr>
+        <tr><td>Pré-classificador primeiro</td><td><span class="decision-tag">Regras antes da API</span></td><td>Elimina ~30% das chamadas de API</td></tr>
+        <tr><td>Rascunho sempre humano</td><td><span class="decision-tag">Nunca envio auto</span></td><td>Risco reputacional de email corporativo errado é alto demais</td></tr>
+        <tr><td>Banco único</td><td><span class="decision-tag">Convex</span></td><td>Real-time nativo, queries reativos, já usado na empresa</td></tr>
+        <tr><td>Isolamento por usuário</td><td><span class="decision-tag">1 worker por funcionário</span></td><td>Dados isolados, sem risco de leak entre caixas</td></tr>
+        <tr><td>Embeddings</td><td><span class="decision-tag">Voyage AI voyage-3-lite</span></td><td>Melhor qualidade semântica para texto curto em português</td></tr>
+      </table>
+
+      <h3 style="margin-top:20px">Estrutura de Prompts</h3>
+      <div style="background:#f8fafc;border-radius:10px;padding:14px;font-family:monospace;font-size:12px;line-height:1.8">
+        <span style="color:#7c3aed">prompts/</span><br>
+        &nbsp;├── <span style="color:#2563eb">classificacao.md</span>&nbsp;&nbsp;&nbsp;<span style="color:#9ca3af"># definição dos 5 níveis, critérios, exemplos</span><br>
+        &nbsp;├── <span style="color:#2563eb">rascunho.md</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#9ca3af"># geração de resposta corporativa</span><br>
+        &nbsp;└── <span style="color:#2563eb">style_extraction.md</span><span style="color:#9ca3af"># extração de características de estilo</span>
+      </div>
+      <div class="callout blue" style="margin-top:10px"><span>ℹ️</span><span>Cada registro no Convex inclui o <strong>hash do commit Git</strong> como promptVersion — permite reproduzir e auditar qualquer classificação histórica.</span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Monitoramento e Pontos de Falha</h2>
+    <table>
+      <tr><th>Ponto de falha</th><th>Detecção</th><th>Resposta</th></tr>
+      <tr class="risk-row"><td>Worker IMAP desconectado</td><td>Health check a cada 5 min</td><td>Reconexão automática; Railway reinicia e notifica o dev automaticamente</td></tr>
+      <tr class="risk-row"><td>Claude API timeout / erro</td><td>Retry backoff exponencial (1s, 3s, 9s)</td><td>Após 3 falhas: email → pasta Fast/Pendente-Classificacao</td></tr>
+      <tr class="risk-row"><td>Voyage AI indisponível</td><td>Erro na geração do embedding</td><td>Correção salva sem embedding; RAG degrada graciosamente</td></tr>
+      <tr class="risk-row"><td>Drift de aprendizado</td><td>Reflexão mensal automatizada</td><td>Mudanças aplicadas automaticamente; blacklist aguarda confirmação manual; funcionário notificado via SMTP</td></tr>
+    </table>
+  </div>
+
+</div>
+
+<!-- ===== TAB: PENDÊNCIAS ===== -->
+<div id="tab-pendencias" class="tab-content">
+
+  <div class="callout red" style="margin-bottom:20px;font-size:13px">
+    <span>⚠️</span>
+    <span><strong>Atenção:</strong> estas 5 pendências bloqueiam o início do MVP. Nenhuma tarefa da Fase 1 pode começar antes de T03 ser resolvido. T01 e T02 podem ser resolvidos em paralelo.</span>
+  </div>
+
+  <div class="pend-list">
+    <div class="pend-item">
+      <div class="p-header">
+        <span class="p-id">T01 · P1</span>
+        <div class="p-title">Confirmar credenciais SMTP no CSC Empresarial</div>
+      </div>
+      <div class="p-desc">Obter com TI as credenciais SMTP do CSC Empresarial para envio de email. Necessário para a notificação da reflexão mensal ao funcionário (F4). Validar autenticação e limite de envios.</div>
+      <div class="p-hours">⏱ 1h estimada · Sem dependências · Pode ser resolvida agora</div>
+    </div>
+
+    <div class="pend-item">
+      <div class="p-header">
+        <span class="p-id">T02 · P1</span>
+        <div class="p-title">Confirmar IMAP IDLE no CSC Empresarial</div>
+      </div>
+      <div class="p-desc">Conectar ao servidor IMAP da CSC Empresarial e validar que IDLE funciona de forma estável. Testar reconexão automática após 29 min (conforme RFC 2177). Sem esta confirmação, a viabilidade técnica do projeto é incerta.</div>
+      <div class="p-hours">⏱ 1h estimada · Sem dependências · Pode ser resolvida agora</div>
+    </div>
+
+    <div class="pend-item">
+      <div class="p-header">
+        <span class="p-id">T03 · P1 · BLOQUEADOR PRINCIPAL</span>
+        <div class="p-title">Avaliação jurídica LGPD</div>
+      </div>
+      <div class="p-desc">Apresentar ao jurídico que o conteúdo de emails de clientes será enviado à Claude API (Anthropic, sediada nos EUA). Obter parecer sobre viabilidade e eventuais restrições. T04 e T05 dependem diretamente desta avaliação.</div>
+      <div class="p-hours">⏱ 3h estimadas · Sem dependências · Envolve jurídico da empresa</div>
+    </div>
+
+    <div class="pend-item" style="border-left-color:#f59e0b">
+      <div class="p-header">
+        <span class="p-id" style="background:#fef3c7;color:#92400e">T04 · P1</span>
+        <div class="p-title">Definir política de retenção de dados no Convex</div>
+      </div>
+      <div class="p-desc">Definir com TI e jurídico: por quanto tempo emails processados ficam armazenados no Convex, quem pode acessar, processo de exclusão. Necessário antes de criar o schema final.</div>
+      <div class="p-hours">⏱ 1h estimada · Depende de: T03</div>
+    </div>
+
+    <div class="pend-item" style="border-left-color:#f59e0b">
+      <div class="p-header">
+        <span class="p-id" style="background:#fef3c7;color:#92400e">T05 · P1</span>
+        <div class="p-title">Assinar DPA com Anthropic (se exigido pelo jurídico)</div>
+      </div>
+      <div class="p-desc">Se o jurídico exigir: iniciar o processo de Data Processing Agreement com a Anthropic antes do go-live. Este processo pode ter prazo longo dependendo da Anthropic. Deve ser iniciado o quanto antes se obrigatório.</div>
+      <div class="p-hours">⏱ 3h estimadas · Depende de: T03 · Prazo externo incerto</div>
+    </div>
+  </div>
+
+  <div class="section" style="margin-top:20px">
+    <h2>Riscos de Implementação</h2>
+    <table>
+      <tr><th>Risco</th><th>Mitigação</th></tr>
+      <tr class="risk-row"><td>LGPD — conteúdo de email enviado à API externa</td><td>Avaliação jurídica obrigatória antes do MVP. Possível DPA. Considerar redação de campos sensíveis.</td></tr>
+      <tr class="risk-row"><td>CSC IMAP IDLE instável</td><td>Teste de estabilidade (T10) antes de avançar. Reconexão automática implementada.</td></tr>
+      <tr class="risk-row"><td>Drift de aprendizado indesejado</td><td>Guard rails globais sobrepõem tudo. Reflexão mensal auto-aplica mudanças; apenas blacklist exige confirmação manual.</td></tr>
+      <tr class="risk-row"><td>Custo crescente de API</td><td>Pré-classificador elimina ~30% das chamadas. Monitorar no dashboard.</td></tr>
+      <tr class="risk-row"><td>Email urgente mal classificado</td><td>Guard rails + contexto de thread + auditoria mensal de falsos negativos</td></tr>
+    </table>
+  </div>
+
+</div>
+
+<script>
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+function filterTasks(fase, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.task-row').forEach(row => {
+    if (fase === 'all') { row.classList.remove('hidden'); return; }
+    if (fase === 'p1') {
+      row.classList.toggle('hidden', row.dataset.prio !== 'p1');
+    } else {
+      row.classList.toggle('hidden', row.dataset.fase !== fase);
+    }
+  });
+}
+</script>
+
+</body>
+</html>

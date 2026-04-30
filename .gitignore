@@ -1,0 +1,73 @@
+# Variáveis de ambiente — NUNCA commitar
+.env
+.env.local
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+.coverage
+htmlcov/
+.tox/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json.bak
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+out/
+*.log
+
+# IDE
+.vscode/
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+*~
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Dados sensíveis (drop zone — caso o projeto use)
+data/raw/
+data/processed/
+data/private/
+*.csv
+*.xlsx
+*.xls
+*.parquet
+!docs/**/*.csv
+!_starter/**/*.csv
+
+# Outputs locais (renderizações, screenshots, etc)
+outputs/
+tmp/
+temp/
+
+# Claude Code local settings (não deve ir pro repo)
+.claude/settings.local.json
+
+# Cache geral
+.cache/
