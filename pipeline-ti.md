@@ -36,7 +36,7 @@ Não há envio automático de emails em nenhuma fase do projeto.
                     │ protocolo IMAP IDLE — conexão persistente
                     ▼
 ┌───────────────────────────────────────────────────────────────────┐
-│  WORKER NODE.JS  (hospedado no Railway)                           │
+│  WORKER NODE.JS  (hospedado no servidor SaveInCloud — Brasil)     │
 │                                                                   │
 │  Processo que fica rodando 24/7 por funcionário                   │
 │  Fase 1: 1–2 instâncias manuais (uma por funcionário piloto)      │
@@ -174,9 +174,9 @@ Duração total: < 30 segundos do recebimento à ação
 | Cenário | O que acontece |
 |---|---|
 | Claude API fora do ar | Retry 3x (1s → 3s → 9s). Se falhar: email vai para pasta `Fast/Pendente-Classificacao`. Sem perda silenciosa. |
-| Worker desconecta do IMAP | Reconexão automática antes de 29 min (RFC 2177). Railway reinicia o processo se travar. |
+| Worker desconecta do IMAP | Reconexão automática antes de 29 min (RFC 2177). PM2 (process manager) reinicia o processo automaticamente. |
 | Voyage AI indisponível (fase 2+) | Correção salva sem embedding. RAG usa exemplos mais antigos. Degradação suave, sem parar. |
-| Worker cai | Railway política "Always Restart". Emails que chegaram durante a queda ficam na caixa e são processados ao reconectar. |
+| Worker cai | PM2 configurado com autorestart: true + startup no boot do servidor. Emails que chegaram durante a queda ficam na caixa e são processados ao reconectar. |
 
 ---
 
@@ -196,7 +196,7 @@ Duração total: < 30 segundos do recebimento à ação
 
 | Serviço | Uso | Onde fica |
 |---|---|---|
-| Railway | Hospeda o worker Node.js | Nuvem (EUA) |
+| SaveInCloud VPS | Hospeda o worker Node.js — servidor próprio da empresa | Servidor próprio (Brasil) |
 | Convex | Banco de dados + backend | Nuvem (EUA) |
 | Claude API (Anthropic) | Classificação + geração de rascunho | Nuvem (EUA) |
 | Voyage AI | Embeddings para aprendizado (fase 2+) | Nuvem (EUA) |
@@ -242,6 +242,6 @@ Não há novo app, nova senha, novo login ou novo processo.
 
 1. **CSC Empresarial suporta IMAP IDLE de forma estável?** (verificar com o provedor)
 2. **Como gerar credenciais de app por funcionário** (separado da senha pessoal, se suportado pelo CSC)
-3. **Existe restrição de rede para conexões IMAP saindo do Railway** (IP fixo necessário)?
+3. **Servidor SaveInCloud tem IP fixo — informar IP ao TI para liberação no firewall do CSC, se necessário**
 4. **Jurídico: envio de conteúdo de email para API externa (EUA) é permitido pela política de dados da Fast?**
 5. **Qual a política de retenção de dados aprovada para logs de classificação?**

@@ -38,6 +38,15 @@ build/
 out/
 *.log
 
+# Logs do PM2 e aplicação
+logs/
+
+# PM2
+.pm2/
+
+# Railway (legado — projeto migrado para SaveInCloud VPS)
+.railway/
+
 # IDE
 .vscode/
 !.vscode/settings.json.example

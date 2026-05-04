@@ -37,7 +37,7 @@
 |---|---|---|---|---|---|
 | T06 | Criar projeto no Convex | Criar projeto Convex (ou configurar existente). Implementar schema completo: `funcionarios`, `perfis`, `style_cards`, `emails_processados`, `correcoes`, `remetentes`. | P1 | 2h | T04 |
 | T07 | Criar seed data do funcionário piloto | Inserir registro do funcionário piloto: `funcionarios`, `perfis` vazio, `style_cards` com valores padrão corporativo Fast. | P1 | 1h | T06 |
-| T08 | Setup do worker no Railway | Criar projeto Node.js no Railway (ou Render). Configurar restart automático ("Always Restart") em caso de crash. Configurar variáveis de ambiente (IMAP, SMTP, Anthropic, Voyage, Convex). Configurar notificação de crash por email ao desenvolvedor. | P1 | 1h | — |
+| T08 | Setup do worker no servidor SaveInCloud | Seguir `docs/setup-servidor.md`. Instalar Node.js + PM2 no servidor. Configurar variáveis de ambiente (IMAP, SMTP, Anthropic, Voyage, Convex) no `.env`. Iniciar worker com `pm2 start ecosystem.config.js` e configurar startup no boot. | P1 | 1h | — |
 | T09 | Implementar conexão IMAP IDLE | Instalar ImapFlow. Implementar conexão com CSC Empresarial via IMAP IDLE. Reconexão automática antes de 29 min (RFC 2177). Listener de novos emails. | P1 | 3h | T02, T08 |
 | T10 | Teste de estabilidade IMAP 24h | Rodar conexão IMAP IDLE por 24h sem intervenção manual. Verificar reconexão automática, ausência de drops silenciosos. | P1 | 2h | T09 |
 
@@ -82,7 +82,7 @@
 | T23 | Implementar executor de ações por nível | Criar pastas Fast/Urgente, Fast/Alta-Prioridade, Fast/Normal, Fast/Baixa, Fast/Irrelevante, Fast/Pendente-Classificacao via IMAP CREATE se não existirem. Mover email para pasta correta via IMAP MOVE. | P1 | 2h | T17 |
 | T24 | Implementar monitoramento de MOVE entre pastas Fast/* | Adicionar listener de eventos MOVE ao worker (paralelo ao IDLE de novos emails). Mapear nomes de pastas Fast/* para níveis numéricos. Filtrar eventos irrelevantes (MOVE para fora de Fast/* ou entre pastas do mesmo nível). | P1 | 2h | T23 |
 | T25 | Processar MOVE como sinal de correção | Ao detectar MOVE relevante: buscar messageId no Convex, extrair nivelOriginal e nivelCorrigido. Inserir em `correcoes`, atualizar `emails_processados.nivelCorrigido` e `aceitoSemCorrecao`, recalcular `remetentes.nivelMedio`. | P1 | 1h | T24, T06 |
-| T26 | Implementar health check do worker | A cada 5 min: registrar heartbeat no Convex. Configurar política "Always Restart" e notificação de crash por email no Railway. | P1 | 1h | T08 |
+| T26 | Implementar health check do worker | A cada 5 min: registrar heartbeat no Convex. PM2 configurado com autorestart: true detecta ausência e reinicia automaticamente. Monitorar via `pm2 logs` e `pm2 monit`. | P1 | 1h | T08 |
 | T27 | Teste end-to-end do pipeline completo | Validar fluxo completo: email recebido → classificado → pasta correta → rascunho (níveis 1–4) → MOVE de pasta detectado como correção → salvo no Convex. | P1 | 3h | T23, T25 |
 | T28 | Go-live piloto (1 funcionário) + ajuste de prompt | Ativar para 1 funcionário piloto. Coletar correções. Analisar padrões de erro. Ajustar `prompts/classificacao.md`. Novo commit = nova promptVersion. | P1 | 4h | T27 |
 
@@ -139,7 +139,7 @@
 | ID | Nome | Descrição | Prioridade | Horas | Dependências |
 |---|---|---|---|---|---|
 | T44 | Parametrizar worker para múltiplos funcionários | Remover hardcode de credenciais. Worker recebe `funcionarioId` como parâmetro. Suportar N instâncias independentes. | P2 | 2h | T28 |
-| T45 | Scripts de onboarding de novo funcionário | Script CLI: cria funcionário + perfil vazio + style card padrão Fast no Convex. Ativa worker dedicado no Railway. | P2 | 2h | T44, T06 |
+| T45 | Scripts de onboarding de novo funcionário | Script CLI: cria funcionário + perfil vazio + style card padrão Fast no Convex. Adiciona nova entrada em ecosystem.config.js e executa `pm2 reload` no servidor. | P2 | 2h | T44, T06 |
 | T46 | Documentação de operação | Guia de onboarding de novo funcionário. Runbook de troubleshooting (worker desconectado, IMAP error, API timeout). Guia de atualização de prompts sem redeploy. | P2 | 2h | T44 |
 
 **Subtotal Fase 3:** 6h

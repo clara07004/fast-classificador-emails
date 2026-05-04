@@ -37,8 +37,8 @@ As tarefas abaixo bloqueiam o MVP. Resolver antes de começar o Dia 1.
 - Criar perfil vazio (sem remetentes, sem guard rails além dos globais Fast)
 - Criar style card inicial com valores padrão corporativo Fast
 
-**1.2 — Setup Railway (ou Render)**
-- Criar projeto Node.js
+**1.2 — Setup no Servidor SaveInCloud**
+- Seguir `docs/setup-servidor.md` para provisionar o servidor
 - Configurar variáveis de ambiente:
   - `IMAP_HOST`, `IMAP_PORT`, `IMAP_USER`, `IMAP_PASS` (CSC Empresarial)
   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` (CSC Empresarial — mesmo servidor)
@@ -148,8 +148,8 @@ As tarefas abaixo bloqueiam o MVP. Resolver antes de começar o Dia 1.
 
 **4.3 — Health check do worker**
 - Implementar heartbeat a cada 5 min registrado no Convex
-- Configurar política "Always Restart" no Railway
-- Configurar notificação de crash/restart no Railway (email ao desenvolvedor)
+- Confirmar PM2 com autorestart: true (ecosystem.config.js já configurado)
+- Confirmar pm2 startup ativo para reinício automático no boot do servidor
 
 **4.4 — Testes e ajuste de prompt**
 - Rodar piloto com funcionário 1

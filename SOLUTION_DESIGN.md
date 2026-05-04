@@ -10,7 +10,7 @@
 
 - Mecanismo de feedback substituído: movimentação de email entre pastas `Fast/*` via IMAP detectada pelo worker como sinal de correção
 - Reflexão mensal: sugestões de perfil aplicadas automaticamente (exceto blacklist, que requer confirmação manual); notificação ao funcionário via email SMTP
-- Health check do worker: monitoramento delegado ao Railway (restart automático + notificação nativa)
+- Health check do worker: monitoramento via PM2 (autorestart: true + startup no boot do servidor)
 - SMTP (CSC Empresarial) adicionado ao stack para notificação da reflexão mensal
 
 ---
@@ -73,12 +73,12 @@ CSC Empresarial (IMAP)
 
 ## Componentes
 
-### Worker Node.js (Railway ou Render)
+### Worker Node.js (SaveInCloud VPS)
 
 - **Uma instância por funcionário** — isolamento total, sem risco de dados cruzados
 - Conexão IMAP IDLE via ImapFlow — reconexão automática antes de 29 min (RFC 2177)
 - Pipeline: receber → normalizar → pré-classificar → (se necessário) classificar via API → executar ações → registrar
-- Health check a cada 5 min; monitoramento de saúde e restart automático via Railway (política "Always Restart")
+- Health check a cada 5 min; monitoramento de saúde e restart automático via PM2 (autorestart: true, ver ecosystem.config.js)
 
 ### Normalizador
 
@@ -349,14 +349,14 @@ prompts/
 
 ## Orchestrador central (Fase 3)
 
-O orchestrador é o processo responsável por gerenciar o ciclo de vida de todos os workers. Roda como um serviço único no Railway/Render e observa a tabela `funcionarios` no Convex via real-time query.
+O orchestrador é o processo responsável por gerenciar o ciclo de vida de todos os workers. Roda como um serviço único no servidor SaveInCloud (gerenciado pelo PM2) e observa a tabela `funcionarios` no Convex via real-time query.
 
 ### Responsabilidades
 
 - Subir um worker quando `funcionarios.ativo` passa de `false` para `true`
 - Desligar o worker quando `funcionarios.ativo` passa para `false`
 - Garantir que nenhum worker duplicado existe para o mesmo funcionário
-- Reportar estado de cada worker via logs no Convex e dashboard Railway
+- Reportar estado de cada worker via logs no Convex e pm2 monit no servidor
 
 ### Estrutura do arquivo
 
@@ -388,7 +388,7 @@ IMAP_HOST=imap.csc.com.br
 IMAP_PASS=<secret>
 ```
 
-**Onde fica:** Railway — deploy único do orchestrador. Workers são processos filhos gerenciados por ele, não deploys separados.
+**Onde fica:** SaveInCloud VPS — processo único do orchestrador gerenciado pelo PM2. Workers são processos filhos gerenciados por ele, não instâncias separadas.
 
 **Fase de ativação:** Fase 3 (rollout). Nas Fases 1 e 2 (MVP e piloto), workers são subidos manualmente, um deploy por funcionário.
 
@@ -398,7 +398,7 @@ IMAP_PASS=<secret>
 
 | Ponto de falha | Detecção | Resposta |
 |---|---|---|
-| Worker IMAP desconectado | Heartbeat a cada 5 min no Convex | Reconexão automática; Railway reinicia o processo e notifica o desenvolvedor |
+| Worker IMAP desconectado | Heartbeat a cada 5 min no Convex | Reconexão automática; PM2 reinicia o processo automaticamente (autorestart: true) |
 | Claude API timeout/erro | Retry com backoff exponencial (3 tentativas: 1s, 3s, 9s) | Após 3 falhas: email → pasta `Fast/Pendente-Classificacao`; funcionário vê ao abrir a caixa |
 | Voyage AI indisponível | Erro na geração do embedding | Correção salva sem embedding; RAG degrada graciosamente (usa exemplos mais antigos) |
 | Drift de aprendizado | Reflexão mensal automatizada | Sugestões aplicadas automaticamente (exceto blacklist); funcionário notificado por email |

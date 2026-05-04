@@ -339,9 +339,9 @@ HEALTH CHECK (a cada 5 min)
 [A] Worker registra heartbeat no Convex
   │
   ▼
-[B] Railway/Render detecta crash ou ausência de heartbeat
-  │  → Restart automático (política "Always Restart" configurada no Railway)
-  │  → Notificação nativa do Railway ao desenvolvedor (email/dashboard)
+[B] PM2 detecta crash ou ausência de heartbeat
+  │  → Restart automático (PM2 autorestart: true configurado em ecosystem.config.js)
+  │  → Desenvolvedor monitora via pm2 logs ou pm2 monit no servidor
   │
   ▼
 [C] Worker reinicia e reconecta IMAP IDLE

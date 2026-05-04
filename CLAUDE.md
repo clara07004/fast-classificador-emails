@@ -23,7 +23,7 @@ Funcionários não técnicos da Fast. A automação é invisível — caixa de e
 | Backend / banco | Convex |
 | IA | Claude API (Anthropic) |
 | Embeddings / RAG | Voyage AI voyage-3-lite |
-| Worker persistente | Railway ou Render |
+| Worker persistente | SaveInCloud VPS (PM2) |
 | DNS/CDN | Cloudflare |
 
 ## Restrições críticas

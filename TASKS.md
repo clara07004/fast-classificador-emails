@@ -18,9 +18,9 @@
 
 ### Setup de infraestrutura
 - [ ] Criar projeto no Convex com schema inicial
-- [ ] Configurar worker no Railway (ou Render) — ambiente Node.js
+- [ ] Configurar worker no servidor SaveInCloud — ambiente Node.js (PM2 via ecosystem.config.js)
 - [ ] Configurar variáveis de ambiente (IMAP credentials, SMTP credentials, Claude API key, Voyage API key, Convex URL)
-- [ ] Configurar política de restart automático e notificação de crash no Railway
+- [ ] Configurar política de restart automático no PM2 (ecosystem.config.js)
 - [ ] Criar conexão IMAP IDLE com ImapFlow para 1 funcionário piloto
 
 ### Normalizador
@@ -54,7 +54,7 @@
 
 ### Monitoramento
 - [ ] Implementar heartbeat a cada 5 min registrado no Convex
-- [ ] Configurar restart automático e notificação de crash no Railway
+- [ ] Configurar restart automático no PM2 (autorestart: true + startup no boot)
 
 ---
 

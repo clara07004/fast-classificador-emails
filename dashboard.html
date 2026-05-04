@@ -312,7 +312,7 @@ tr:hover td{background:#fafbfc}
         <div class="stack-item"><div class="layer">Rascunho / Escalada</div><div class="tool">Claude Sonnet 4.6</div><div class="desc">Alta confiança + qualidade</div></div>
         <div class="stack-item"><div class="layer">Embeddings / RAG</div><div class="tool">Voyage AI</div><div class="desc">voyage-3-lite</div></div>
         <div class="stack-item"><div class="layer">Notificação</div><div class="tool">SMTP</div><div class="desc">CSC Empresarial (reflexão mensal)</div></div>
-        <div class="stack-item"><div class="layer">Worker Persistente</div><div class="tool">Railway</div><div class="desc">Restart automático</div></div>
+        <div class="stack-item"><div class="layer">Worker Persistente</div><div class="tool">SaveInCloud VPS</div><div class="desc">PM2 — restart automático</div></div>
         <div class="stack-item"><div class="layer">DNS / CDN</div><div class="tool">Cloudflare</div><div class="desc">Proteção e entrega</div></div>
       </div>
     </div>
@@ -367,7 +367,7 @@ tr:hover td{background:#fafbfc}
         <li><span class="tid">T05</span><span>Assinar DPA com Anthropic (se exigido)</span><span class="th">3h</span></li>
         <li><span class="tid">T06</span><span>Criar projeto Convex + schema completo</span><span class="th">2h</span></li>
         <li><span class="tid">T07</span><span>Seed data do funcionário piloto</span><span class="th">1h</span></li>
-        <li><span class="tid">T08</span><span>Setup worker Railway + variáveis de ambiente</span><span class="th">1h</span></li>
+        <li><span class="tid">T08</span><span>Setup worker no servidor SaveInCloud + variáveis de ambiente</span><span class="th">1h</span></li>
         <li><span class="tid">T09</span><span>Implementar conexão IMAP IDLE</span><span class="th">3h</span></li>
         <li><span class="tid">T10</span><span>Teste de estabilidade IMAP 24h</span><span class="th">2h</span></li>
       </ul>
@@ -521,7 +521,7 @@ tr:hover td{background:#fafbfc}
         <!-- FASE 1 SPRINT 1 -->
         <tr class="task-row" data-fase="f1" data-prio="p1"><td>T06</td><td><span class="badge badge-f1">Fase 1 — S1</span></td><td>Criar projeto no Convex</td><td>Schema completo: funcionarios, perfis, style_cards, emails_processados, correcoes, remetentes.</td><td><span class="badge badge-p1">P1</span></td><td>2h</td><td>T04</td></tr>
         <tr class="task-row" data-fase="f1" data-prio="p1"><td>T07</td><td><span class="badge badge-f1">Fase 1 — S1</span></td><td>Seed data do funcionário piloto</td><td>Inserir registro do piloto: funcionarios, perfis vazio, style_cards com padrão Fast.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>T06</td></tr>
-        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T08</td><td><span class="badge badge-f1">Fase 1 — S1</span></td><td>Setup worker no Railway</td><td>Node.js no Railway, restart automático, todas as variáveis de ambiente configuradas.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>—</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T08</td><td><span class="badge badge-f1">Fase 1 — S1</span></td><td>Setup worker no servidor SaveInCloud</td><td>Node.js + PM2 no servidor SaveInCloud, restart automático via ecosystem.config.js, todas as variáveis de ambiente configuradas no .env.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>—</td></tr>
         <tr class="task-row" data-fase="f1" data-prio="p1"><td>T09</td><td><span class="badge badge-f1">Fase 1 — S1</span></td><td>Implementar conexão IMAP IDLE</td><td>ImapFlow, reconexão antes de 29 min (RFC 2177), listener de novos emails.</td><td><span class="badge badge-p1">P1</span></td><td>3h</td><td>T02, T08</td></tr>
         <tr class="task-row" data-fase="f1" data-prio="p1"><td>T10</td><td><span class="badge badge-f1">Fase 1 — S1</span></td><td>Teste de estabilidade IMAP 24h</td><td>Rodar por 24h sem intervenção. Verificar reconexão, ausência de drops silenciosos.</td><td><span class="badge badge-p1">P1</span></td><td>2h</td><td>T09</td></tr>
         <!-- FASE 1 SPRINT 2 -->
@@ -544,7 +544,7 @@ tr:hover td{background:#fafbfc}
         <tr class="task-row" data-fase="f1" data-prio="p1"><td>T25</td><td><span class="badge badge-f1">Fase 1 — S4</span></td><td>Processar MOVE como sinal de correção</td><td>Busca messageId no Convex, extrai nivelOriginal e nivelCorrigido, insere em correcoes, recalcula nivelMedio do remetente.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>T24</td></tr>
         <tr class="task-row" data-fase="f1" data-prio="p1"><td>T26</td><td><span class="badge badge-f1">Fase 1 — S4</span></td><td>Formulário web de feedback</td><td>HTML leve (fallback): exibe 5 níveis, funcionário seleciona e confirma.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>T25</td></tr>
         <tr class="task-row" data-fase="f1" data-prio="p1"><td>T27</td><td><span class="badge badge-f1">Fase 1 — S4</span></td><td>Salvar correções no Convex</td><td>Inserir em correcoes, atualizar nivelCorrigido em emails_processados, recalcular nivelMedio do remetente.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>T25, T06</td></tr>
-        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T28</td><td><span class="badge badge-f1">Fase 1 — S4</span></td><td>Health check do worker</td><td>A cada 5 min: heartbeat no Convex. Railway detecta ausência e reinicia automaticamente, notificando o desenvolvedor via email/dashboard nativo.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>T08</td></tr>
+        <tr class="task-row" data-fase="f1" data-prio="p1"><td>T28</td><td><span class="badge badge-f1">Fase 1 — S4</span></td><td>Health check do worker</td><td>A cada 5 min: heartbeat no Convex. PM2 detecta ausência e reinicia automaticamente (autorestart: true). Monitorar via pm2 logs e pm2 monit no servidor.</td><td><span class="badge badge-p1">P1</span></td><td>1h</td><td>T08</td></tr>
         <tr class="task-row" data-fase="f1" data-prio="p1"><td>T29</td><td><span class="badge badge-f1">Fase 1 — S4</span></td><td>Teste end-to-end</td><td>Validar fluxo completo: email → classificado → pasta → rascunho → alerta (N1) → feedback salvo.</td><td><span class="badge badge-p1">P1</span></td><td>3h</td><td>T23, T24, T27</td></tr>
         <tr class="task-row" data-fase="f1" data-prio="p1"><td>T30</td><td><span class="badge badge-f1">Fase 1 — S4</span></td><td>Go-live piloto + ajuste de prompt</td><td>Ativar para 1 funcionário piloto por 1 semana. Coletar correções, analisar padrões, ajustar prompts.</td><td><span class="badge badge-p1">P1</span></td><td>4h</td><td>T29</td></tr>
         <!-- FASE 2 SPRINT 5 -->
@@ -565,7 +565,7 @@ tr:hover td{background:#fafbfc}
         <tr class="task-row" data-fase="f2" data-prio="p2"><td>T43</td><td><span class="badge badge-f2">Fase 2 — S7</span></td><td>Rotina de reflexão mensal</td><td>Cron mensal: analisa correções → Claude identifica padrões → aplica whitelist/guard rails automaticamente → registra blacklist como pendente → notifica funcionário via SMTP.</td><td><span class="badge badge-p2">P2</span></td><td>2h</td><td>T25, T35</td></tr>
         <!-- FASE 3 -->
         <tr class="task-row" data-fase="f3" data-prio="p2"><td>T44</td><td><span class="badge badge-f3">Fase 3</span></td><td>Parametrizar worker — múltiplos usuários</td><td>Remover hardcode. Worker recebe funcionarioId como parâmetro. N instâncias independentes.</td><td><span class="badge badge-p2">P2</span></td><td>2h</td><td>T30</td></tr>
-        <tr class="task-row" data-fase="f3" data-prio="p2"><td>T45</td><td><span class="badge badge-f3">Fase 3</span></td><td>Scripts de onboarding</td><td>CLI: cria funcionário + perfil vazio + style card padrão Fast. Ativa worker no Railway.</td><td><span class="badge badge-p2">P2</span></td><td>2h</td><td>T44, T06</td></tr>
+        <tr class="task-row" data-fase="f3" data-prio="p2"><td>T45</td><td><span class="badge badge-f3">Fase 3</span></td><td>Scripts de onboarding</td><td>CLI: cria funcionário + perfil vazio + style card padrão Fast. Adiciona entrada em ecosystem.config.js e executa pm2 reload no servidor.</td><td><span class="badge badge-p2">P2</span></td><td>2h</td><td>T44, T06</td></tr>
         <tr class="task-row" data-fase="f3" data-prio="p2"><td>T46</td><td><span class="badge badge-f3">Fase 3</span></td><td>Documentação de operação</td><td>Guia de onboarding, runbook de troubleshooting, guia de atualização de prompts sem redeploy.</td><td><span class="badge badge-p2">P2</span></td><td>2h</td><td>T44</td></tr>
         <!-- FASE 6 -->
         <tr class="task-row" data-fase="f6" data-prio="p3"><td>T47</td><td><span class="badge badge-f6">Fase 6</span></td><td>Interface de gestão TI</td><td>Painel web: workers ativos, funcionários, whitelist/blacklist/guard rails, últimas classificações.</td><td><span class="badge badge-p3">P3</span></td><td>4h</td><td>—</td></tr>
@@ -711,7 +711,7 @@ tr:hover td{background:#fafbfc}
         <li><div class="step-num" style="background:#fee2e2;color:#991b1b">5</div><div>Worker continua processando próximos emails — sem perda silenciosa</div></li>
       </ul>
       <div style="margin-top:10px;padding:10px;background:#fff5f5;border-radius:8px;font-size:11px;color:#991b1b">
-        <strong>Health check:</strong> heartbeat a cada 5 min no Convex. Railway detecta ausência e reinicia automaticamente, notificando o desenvolvedor via email/dashboard nativo.
+        <strong>Health check:</strong> heartbeat a cada 5 min no Convex. PM2 detecta ausência e reinicia automaticamente (autorestart: true). Monitorar via pm2 logs e pm2 monit no servidor.
       </div>
       <div class="flow-integrations">
         <span class="int-tag">Convex</span>
@@ -731,7 +731,7 @@ tr:hover td{background:#fafbfc}
       <span style="color:#38bdf8">CSC Empresarial (IMAP)</span><br>
       &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│ <span style="color:#64748b">IMAP IDLE — 1 conexão persistente por funcionário</span><br>
       &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼<br>
-      <span style="color:#34d399">┌─────────────── Worker Node.js (Railway) ───────────────┐</span><br>
+      <span style="color:#34d399">┌──────── Worker Node.js (SaveInCloud VPS — PM2) ────────┐</span><br>
       <span style="color:#34d399">│</span>&nbsp; <span style="color:#fbbf24">Normalizador</span> → <span style="color:#fbbf24">Pré-classificador determinístico</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#34d399">│</span><br>
       <span style="color:#34d399">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│ (se não decidido)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#34d399">│</span><br>
       <span style="color:#34d399">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#34d399">│</span><br>
@@ -841,7 +841,7 @@ tr:hover td{background:#fafbfc}
     <h2>Monitoramento e Pontos de Falha</h2>
     <table>
       <tr><th>Ponto de falha</th><th>Detecção</th><th>Resposta</th></tr>
-      <tr class="risk-row"><td>Worker IMAP desconectado</td><td>Health check a cada 5 min</td><td>Reconexão automática; Railway reinicia e notifica o dev automaticamente</td></tr>
+      <tr class="risk-row"><td>Worker IMAP desconectado</td><td>Health check a cada 5 min</td><td>Reconexão automática; PM2 reinicia o processo automaticamente (autorestart: true)</td></tr>
       <tr class="risk-row"><td>Claude API timeout / erro</td><td>Retry backoff exponencial (1s, 3s, 9s)</td><td>Após 3 falhas: email → pasta Fast/Pendente-Classificacao</td></tr>
       <tr class="risk-row"><td>Voyage AI indisponível</td><td>Erro na geração do embedding</td><td>Correção salva sem embedding; RAG degrada graciosamente</td></tr>
       <tr class="risk-row"><td>Drift de aprendizado</td><td>Reflexão mensal automatizada</td><td>Mudanças aplicadas automaticamente; blacklist aguarda confirmação manual; funcionário notificado via SMTP</td></tr>

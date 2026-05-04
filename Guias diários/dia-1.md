@@ -29,7 +29,7 @@ Com Claude escrevendo o código, T09 que antes levaria 10h agora leva ~3h. O obj
 ```
 Manhã       → T06: Criar projeto no Convex (2h)
 Manhã       → T07: Seed data do piloto (1h)
-Tarde       → T08: Setup Railway (1h)
+Tarde       → T08: Setup no servidor SaveInCloud (1h)
 Tarde       → T09: IMAP IDLE (3h — Claude escreve o código)
 Antes de dormir → T10: Disparar teste de 24h
 ```
@@ -368,134 +368,92 @@ No dashboard Convex → aba **"Data"**:
 
 ---
 
-## T08 — Setup do worker no Railway (1h estimada)
+## T08 — Setup do worker no servidor SaveInCloud (1h estimada)
 
-### O que é o Railway?
-Railway é uma plataforma de hospedagem na nuvem onde o worker (programa Node.js que fica monitorando os emails) vai rodar 24h por dia, sem precisar do seu computador ligado.
+### O que é o servidor SaveInCloud?
+O worker (programa Node.js que fica monitorando os emails) vai rodar 24h por dia em um VPS (servidor virtual privado) da SaveInCloud — provedor brasileiro. O servidor tem IP fixo e fica no Brasil. O gerenciador de processos usado é o **PM2**, que reinicia o worker automaticamente se ele cair.
 
----
-
-### Passo 1 — Criar conta no GitHub (se não tiver)
-
-Railway precisa de GitHub para funcionar.
-- Acesse: **https://github.com**
-- Se não tiver conta: "Sign up" → use seu email pessoal ou corporativo
+Para instruções completas de provisionamento do zero, veja `docs/setup-servidor.md`.
 
 ---
 
-### Passo 2 — Criar conta no Railway
+### Passo 1 — Acessar o servidor via SSH
 
-- Acesse: **https://railway.app**
-- Clique em **"Login"** → **"Login with GitHub"**
-- Autorize o acesso
+```bash
+ssh usuario@IP_DO_SERVIDOR
+```
+
+O IP e as credenciais de acesso são fornecidos pela SaveInCloud no painel de controle da conta.
 
 ---
 
-### Passo 3 — Criar a estrutura do worker localmente
+### Passo 2 — Clonar o repositório no servidor
 
-No PowerShell (pode ser no mesmo terminal que você usou para T06 ou um novo):
-
-```
-mkdir C:\Projetos\email-worker
-cd C:\Projetos\email-worker
-npm init -y
-npm install imapflow dotenv convex
-```
-
-Crie o arquivo `index.js` com conteúdo temporário (a lógica real vem na T09):
-
-```javascript
-require('dotenv').config();
-console.log('[WORKER] Iniciando...');
-console.log('[WORKER] Variáveis de ambiente carregadas:', {
-  IMAP_HOST: process.env.IMAP_HOST || 'NÃO CONFIGURADA',
-  IMAP_USER: process.env.IMAP_USER || 'NÃO CONFIGURADA',
-  CONVEX_URL: process.env.CONVEX_URL ? 'OK' : 'NÃO CONFIGURADA',
-});
-// Lógica IMAP IDLE será implementada na T09
-```
-
-Crie o arquivo `.gitignore` para não subir arquivos sensíveis:
-
-```
-.env
-node_modules/
+```bash
+git clone <URL_DO_REPOSITORIO> classificador-email
+cd classificador-email
+npm ci --omit=dev
 ```
 
 ---
 
-### Passo 4 — Subir para o GitHub
+### Passo 3 — Configurar variáveis de ambiente
 
-```
-cd C:\Projetos\email-worker
-git init
-git add .
-git commit -m "feat: estrutura inicial do worker"
+```bash
+cp .env.example .env
+nano .env
 ```
 
-- Acesse **github.com** → clique em **"+"** no canto superior direito → **"New repository"**
-- Nome: `email-worker`
-- Visibilidade: **Private** (importante — não deixe público)
-- Clique em **"Create repository"**
-- Copie os comandos que o GitHub mostrar para "push an existing repository" e execute no terminal
-
----
-
-### Passo 5 — Conectar Railway ao repositório
-
-- No Railway: **"New Project"** → **"Deploy from GitHub repo"**
-- Selecione `email-worker`
-- Railway detecta Node.js automaticamente e faz o primeiro deploy
-
----
-
-### Passo 6 — Configurar variáveis de ambiente no Railway
-
-No Railway → seu projeto → aba **"Variables"** → **"Add Variable"**:
-
-**Adicione agora (você já tem esses dados):**
+**Preencha agora (você já tem esses dados):**
 ```
 IMAP_PORT         = 993
 IMAP_USER         = clara.barbosa@fastdrywall.com.br
-IMAP_PASS         = [sua senha do email CSC Empresarial]
-CONVEX_URL        = [a URL do seu deployment Convex — está no arquivo .env.local da pasta classificador-email]
+IMAP_PASSWORD     = [sua senha do email CSC Empresarial]
+CONVEX_URL        = [a URL do seu deployment Convex]
 ```
 
-**Adicione o host IMAP quando confirmar com TI:**
+**Preencha quando TI confirmar:**
 ```
 IMAP_HOST         = [a ser confirmado — ver nota na T09]
-```
-
-**Adicione quando TI responder:**
-```
 ANTHROPIC_API_KEY = [aguardando TI]
 VOYAGE_API_KEY    = [aguardando TI]
 SMTP_HOST         = [a ser confirmado com TI]
 SMTP_PORT         = 587
 SMTP_USER         = [mesmo do IMAP_USER]
-SMTP_PASS         = [mesmo do IMAP_PASS]
+SMTP_PASSWORD     = [mesmo do IMAP_PASSWORD]
+```
+
+Proteja o arquivo:
+```bash
+chmod 600 .env
 ```
 
 ---
 
-### Passo 7 — Configurar restart automático
+### Passo 4 — Iniciar o worker com PM2
 
-No Railway → seu projeto → aba **"Settings"** → seção **"Restart Policy"**:
-- Selecione **"Always"** — Railway vai reiniciar automaticamente se o worker cair
+```bash
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup   # seguir as instruções exibidas para auto-start no boot
+```
 
 ---
 
-### Passo 8 — Verificar que está rodando
+### Passo 5 — Verificar que está rodando
 
-No Railway → aba **"Deployments"** → clique no deploy mais recente → **"View Logs"**
+```bash
+pm2 status
+pm2 logs classificador-email --lines 20
+```
 
 Você deve ver:
 ```
-[WORKER] Iniciando...
-[WORKER] Variáveis de ambiente carregadas: { IMAP_HOST: 'NÃO CONFIGURADA', ...}
+[WORKER] Classificador de emails iniciado
+[WORKER] Worker aguardando emails via IMAP IDLE...
 ```
 
-✅ T08 concluída quando o projeto estiver deployado no Railway e os logs aparecerem.
+✅ T08 concluída quando o worker aparecer como `online` no `pm2 status` e os logs aparecerem.
 
 ---
 
@@ -700,7 +658,7 @@ criarConexao();
 // Manter processo vivo e logar erros não capturados
 process.on('uncaughtException', (err) => {
   console.error('[WORKER] Erro não capturado:', err.message);
-  // Railway reinicia automaticamente após o processo encerrar
+  // PM2 reinicia automaticamente após o processo encerrar (autorestart: true)
   process.exit(1);
 });
 
@@ -746,7 +704,7 @@ node index.js
 
 ---
 
-### Passo 6 — Deploy no Railway
+### Passo 6 — Deploy no servidor
 
 Após teste local bem-sucedido:
 ```
@@ -755,29 +713,35 @@ git commit -m "feat: implementação IMAP IDLE com reconexão preventiva RFC 217
 git push
 ```
 
-Atualizar também a variável `IMAP_HOST` no Railway com o valor confirmado.
+No servidor SaveInCloud, execute o deploy:
+```bash
+bash scripts/deploy.sh
+```
 
-Railway faz o deploy automaticamente. Verifique os logs no Railway para confirmar que está rodando.
+Atualizar também a variável `IMAP_HOST` no `.env` do servidor com o valor confirmado.
 
-✅ T09 concluída quando os logs do Railway mostrarem "IDLE ativo" sem erros por pelo menos 30 minutos.
+✅ T09 concluída quando os logs do PM2 mostrarem "IDLE ativo" sem erros por pelo menos 30 minutos.
+```bash
+pm2 logs classificador-email --lines 50
+```
 
 ---
 
 ## T10 — Teste de estabilidade IMAP 24h (2h de atenção, 24h de observação)
 
 ### O que é?
-Deixar o worker rodando no Railway sem tocar por 24h, verificando se a conexão se mantém estável, as reconexões preventivas acontecem corretamente, e nenhum email escapa silenciosamente.
+Deixar o worker rodando no servidor SaveInCloud sem tocar por 24h, verificando se a conexão se mantém estável, as reconexões preventivas acontecem corretamente, e nenhum email escapa silenciosamente.
 
 ---
 
 ### Como iniciar
-T09 deployada no Railway = T10 já começou. Anote o horário de início.
+T09 deployada no servidor = T10 já começou. Anote o horário de início.
 
 **Dispare antes de dormir**, mesmo que T09 esteja no limite do dia — o teste roda sozinho.
 
 ---
 
-### O que monitorar (verificar no Railway → Logs)
+### O que monitorar (via `pm2 logs classificador-email`)
 
 **Sinal saudável a cada ~28 minutos:**
 ```
@@ -790,7 +754,7 @@ T09 deployada no Railway = T10 já começou. Anote o horário de início.
 **Sinal de problema:**
 - Período de mais de 30 minutos sem nenhum log
 - Linha `❌ Falha ao conectar` repetida sem recuperação
-- Worker reiniciado pelo Railway mais de 2 vezes em 24h
+- Worker reiniciado pelo PM2 mais de 2 vezes em 24h (checar: `pm2 describe classificador-email`)
 
 ---
 
@@ -823,6 +787,6 @@ Agrupe tudo em uma mensagem para o TI:
 | Recurso | URL |
 |---------|-----|
 | Dashboard Convex | https://dashboard.convex.dev |
-| Dashboard Railway | https://railway.app/dashboard |
+| Servidor SaveInCloud | Acesso via SSH — ver `docs/setup-servidor.md` |
 | Documentação ImapFlow | https://imapflow.com |
 | Voyage AI (embeddings) | https://voyageai.com |

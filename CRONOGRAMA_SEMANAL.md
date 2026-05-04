@@ -11,7 +11,7 @@
 
 ## Dia 1 — Setup, pendências externas e infraestrutura IMAP
 
-**Objetivo:** resolver bloqueadores externos, infraestrutura rodando no Railway e conexão IMAP estável com o funcionário piloto.
+**Objetivo:** resolver bloqueadores externos, infraestrutura rodando no servidor SaveInCloud e conexão IMAP estável com o funcionário piloto.
 
 | Tarefa | ID | Horas |
 |---|---|---|
@@ -22,7 +22,7 @@
 | Assinar DPA com Anthropic (se exigido) | T05 | 3h |
 | Criar projeto no Convex + schema completo | T06 | 2h |
 | Criar seed data do funcionário piloto | T07 | 1h |
-| Setup do worker no Railway + variáveis de ambiente | T08 | 1h |
+| Setup do worker no servidor SaveInCloud + variáveis de ambiente | T08 | 1h |
 | Implementar conexão IMAP IDLE com ImapFlow | T09 | 3h |
 | Teste de estabilidade IMAP 24h | T10 | 2h |
 
@@ -76,7 +76,7 @@
 | Implementar executor de ações por nível (IMAP MOVE) | T23 | 2h |
 | Implementar monitoramento de MOVE entre pastas Fast/* | T24 | 2h |
 | Processar MOVE como sinal de correção e salvar no Convex | T25 | 1h |
-| Implementar health check do worker (heartbeat + Railway) | T26 | 1h |
+| Implementar health check do worker (heartbeat + PM2) | T26 | 1h |
 | Teste end-to-end do pipeline completo | T27 | 3h |
 | Go-live piloto + ajuste de prompt | T28 | 4h |
 
