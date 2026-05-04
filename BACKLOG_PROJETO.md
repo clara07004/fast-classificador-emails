@@ -37,7 +37,7 @@
 |---|---|---|---|---|---|
 | T06 | Criar projeto no Convex | Criar projeto Convex (ou configurar existente). Implementar schema completo: `funcionarios`, `perfis`, `style_cards`, `emails_processados`, `correcoes`, `remetentes`. | P1 | 2h | T04 |
 | T07 | Criar seed data do funcionário piloto | Inserir registro do funcionário piloto: `funcionarios`, `perfis` vazio, `style_cards` com valores padrão corporativo Fast. | P1 | 1h | T06 |
-| T08 | Setup do worker no servidor SaveInCloud | Seguir `docs/setup-servidor.md`. Instalar Node.js + PM2 no servidor. Configurar variáveis de ambiente (IMAP, SMTP, Anthropic, Voyage, Convex) no `.env`. Iniciar worker com `pm2 start ecosystem.config.js` e configurar startup no boot. | P1 | 1h | — |
+| T08 | Setup do worker no servidor SaveInCloud | Seguir `docs/setup-servidor.md`. Instalar Node.js + PM2 no servidor. Configurar variáveis de ambiente (IMAP, SMTP, Anthropic, Voyage, Convex) no `.env`. Iniciar worker com `pm2 start ecosystem.config.cjs` e configurar startup no boot. | P1 | 1h | — |
 | T09 | Implementar conexão IMAP IDLE | Instalar ImapFlow. Implementar conexão com CSC Empresarial via IMAP IDLE. Reconexão automática antes de 29 min (RFC 2177). Listener de novos emails. | P1 | 3h | T02, T08 |
 | T10 | Teste de estabilidade IMAP 24h | Rodar conexão IMAP IDLE por 24h sem intervenção manual. Verificar reconexão automática, ausência de drops silenciosos. | P1 | 2h | T09 |
 
@@ -139,7 +139,7 @@
 | ID | Nome | Descrição | Prioridade | Horas | Dependências |
 |---|---|---|---|---|---|
 | T44 | Parametrizar worker para múltiplos funcionários | Remover hardcode de credenciais. Worker recebe `funcionarioId` como parâmetro. Suportar N instâncias independentes. | P2 | 2h | T28 |
-| T45 | Scripts de onboarding de novo funcionário | Script CLI: cria funcionário + perfil vazio + style card padrão Fast no Convex. Adiciona nova entrada em ecosystem.config.js e executa `pm2 reload` no servidor. | P2 | 2h | T44, T06 |
+| T45 | Scripts de onboarding de novo funcionário | Script CLI: cria funcionário + perfil vazio + style card padrão Fast no Convex. Adiciona nova entrada em ecosystem.config.cjs e executa `pm2 reload` no servidor. | P2 | 2h | T44, T06 |
 | T46 | Documentação de operação | Guia de onboarding de novo funcionário. Runbook de troubleshooting (worker desconectado, IMAP error, API timeout). Guia de atualização de prompts sem redeploy. | P2 | 2h | T44 |
 
 **Subtotal Fase 3:** 6h

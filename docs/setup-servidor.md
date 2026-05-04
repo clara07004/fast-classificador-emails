@@ -30,7 +30,7 @@ npm install -g pm2
 ## 3. Clonar o repositório
 
 ```bash
-git clone <URL_DO_REPOSITORIO> classificador-email
+git clone https://github.com/clara07004/fast-classificador-emails.git classificador-email
 cd classificador-email
 npm ci --omit=dev
 ```
@@ -46,7 +46,7 @@ chmod 600 .env
 ## 5. Iniciar o worker com PM2
 
 ```bash
-pm2 start ecosystem.config.js
+pm2 start ecosystem.config.cjs
 pm2 save
 pm2 startup   # seguir as instruções exibidas para auto-start no boot
 ```

@@ -148,7 +148,7 @@ As tarefas abaixo bloqueiam o MVP. Resolver antes de começar o Dia 1.
 
 **4.3 — Health check do worker**
 - Implementar heartbeat a cada 5 min registrado no Convex
-- Confirmar PM2 com autorestart: true (ecosystem.config.js já configurado)
+- Confirmar PM2 com autorestart: true (ecosystem.config.cjs já configurado)
 - Confirmar pm2 startup ativo para reinício automático no boot do servidor
 
 **4.4 — Testes e ajuste de prompt**

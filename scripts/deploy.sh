@@ -13,7 +13,7 @@ echo "==> Instalando dependências..."
 npm ci --omit=dev
 
 echo "==> Reiniciando worker via PM2..."
-pm2 reload ecosystem.config.js --update-env
+pm2 reload ecosystem.config.cjs --update-env
 
 echo "==> Status atual:"
 pm2 status

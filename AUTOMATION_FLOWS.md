@@ -340,7 +340,7 @@ HEALTH CHECK (a cada 5 min)
   │
   ▼
 [B] PM2 detecta crash ou ausência de heartbeat
-  │  → Restart automático (PM2 autorestart: true configurado em ecosystem.config.js)
+  │  → Restart automático (PM2 autorestart: true configurado em ecosystem.config.cjs)
   │  → Desenvolvedor monitora via pm2 logs ou pm2 monit no servidor
   │
   ▼

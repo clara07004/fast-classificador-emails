@@ -78,7 +78,7 @@ CSC Empresarial (IMAP)
 - **Uma instância por funcionário** — isolamento total, sem risco de dados cruzados
 - Conexão IMAP IDLE via ImapFlow — reconexão automática antes de 29 min (RFC 2177)
 - Pipeline: receber → normalizar → pré-classificar → (se necessário) classificar via API → executar ações → registrar
-- Health check a cada 5 min; monitoramento de saúde e restart automático via PM2 (autorestart: true, ver ecosystem.config.js)
+- Health check a cada 5 min; monitoramento de saúde e restart automático via PM2 (autorestart: true, ver ecosystem.config.cjs)
 
 ### Normalizador
 

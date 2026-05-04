@@ -23,7 +23,7 @@ Node.js · ImapFlow · Convex · Claude API · Voyage AI · SaveInCloud VPS (PM2
 | [PROCESS_MAP.md](PROCESS_MAP.md) | Processo atual × processo automatizado |
 | [SOLUTION_DESIGN.md](SOLUTION_DESIGN.md) | Arquitetura técnica e decisões de design |
 | [TASKS.md](TASKS.md) | Lista de implementação por fase |
-| [ecosystem.config.js](ecosystem.config.js) | Configuração do PM2 (process manager do worker) |
+| [ecosystem.config.cjs](ecosystem.config.cjs) | Configuração do PM2 (process manager do worker) |
 | [docs/setup-servidor.md](docs/setup-servidor.md) | Instruções de setup do servidor SaveInCloud |
 | [scripts/deploy.sh](scripts/deploy.sh) | Script de deploy no servidor |
 

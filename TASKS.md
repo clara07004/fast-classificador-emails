@@ -19,9 +19,9 @@
 
 ### Setup de infraestrutura
 - [ ] Criar projeto no Convex com schema inicial
-- [ ] Configurar worker no servidor SaveInCloud — ambiente Node.js (PM2 via ecosystem.config.js)
+- [ ] Configurar worker no servidor SaveInCloud — ambiente Node.js (PM2 via ecosystem.config.cjs)
 - [ ] Configurar variáveis de ambiente (IMAP credentials, SMTP credentials, Claude API key, Voyage API key, Convex URL)
-- [ ] Configurar política de restart automático no PM2 (ecosystem.config.js)
+- [ ] Configurar política de restart automático no PM2 (ecosystem.config.cjs)
 - [ ] Criar conexão IMAP IDLE com ImapFlow para 1 funcionário piloto
 
 ### Normalizador
