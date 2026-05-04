@@ -6,8 +6,9 @@
 
 ## Pré-MVP — Pendências externas
 
-- [ ] Confirmar com TI: CSC Empresarial suporta IMAP IDLE de forma estável?
-- [ ] Confirmar com TI: credenciais SMTP do CSC Empresarial para envio de email de notificação
+- [x] Confirmar com TI: CSC Empresarial suporta IMAP IDLE de forma estável? — ✅ Confirmado (protocolo 20246): `mail.cscempresarial.com.br`, porta 993 SSL, IDLE suportado, sem restrição de IP
+- [x] Confirmar com TI: host e porta SMTP do CSC Empresarial — ✅ Confirmado: mesmo host, porta 587 ou 465
+- [ ] Obter credenciais por funcionário (email + senha) para o piloto
 - [ ] Confirmar com Jurídico: envio de conteúdo de email à Claude API é viável sob LGPD?
 - [ ] Definir política de retenção de dados no Convex
 - [ ] Assinar DPA com Anthropic (se jurídico exigir)

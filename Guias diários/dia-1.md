@@ -412,15 +412,19 @@ IMAP_PASSWORD     = [sua senha do email CSC Empresarial]
 CONVEX_URL        = [a URL do seu deployment Convex]
 ```
 
-**Preencha quando TI confirmar:**
+**Preencha com os dados confirmados pelo TI (protocolo CSC 20246):**
 ```
-IMAP_HOST         = [a ser confirmado — ver nota na T09]
-ANTHROPIC_API_KEY = [aguardando TI]
-VOYAGE_API_KEY    = [aguardando TI]
-SMTP_HOST         = [a ser confirmado com TI]
+IMAP_HOST         = mail.cscempresarial.com.br
+SMTP_HOST         = mail.cscempresarial.com.br
 SMTP_PORT         = 587
 SMTP_USER         = [mesmo do IMAP_USER]
 SMTP_PASSWORD     = [mesmo do IMAP_PASSWORD]
+```
+
+**Ainda pendentes:**
+```
+ANTHROPIC_API_KEY = [aguardando liberação]
+VOYAGE_API_KEY    = [aguardando liberação]
 ```
 
 Proteja o arquivo:
@@ -459,34 +463,18 @@ Você deve ver:
 
 ## T09 — Implementar conexão IMAP IDLE (3h estimadas)
 
-### ⚠️ Pré-requisito crítico: descobrir as configurações IMAP
+### ✅ Configurações IMAP confirmadas pelo TI (protocolo CSC 20246)
 
-**Você precisa saber:**
-- Host IMAP do CSC Empresarial (algo como `imap.cscempresarial.com.br`)
-- Porta (geralmente 993 com SSL)
-
-**Como descobrir (faça isso enquanto trabalha em T06/T07):**
-
-**Opção A — Via webmail:**
-1. Acesse https://webmail.cscempresarial.com.br
-2. Procure em Configurações (ícone de engrenagem) → "Configuração para cliente de email" ou "IMAP/SMTP"
-3. Anote os dados
-
-**Opção B — Via TI:**
-Pergunte ao TI (já que vai falar com eles sobre as outras chaves):
-> "Qual é o servidor IMAP do CSC Empresarial, porta e se usa SSL? Preciso me conectar programaticamente."
-
-**Opção C — Tentar a convenção padrão:**
-Se não conseguir a informação antes, tente primeiro com:
-- Host: `imap.cscempresarial.com.br`
-- Porta: `993`
-- SSL: `true`
-
-Se não funcionar, tente:
-- Host: `mail.cscempresarial.com.br`
-- Porta: `993`
-
-> ⚠️ Não sigo adiante com T09 sem confirmar pelo menos uma dessas combinações. Continuar às cegas vai gerar horas de debug por algo resolvível em 5 minutos.
+| Configuração | Valor |
+|---|---|
+| Host IMAP | `mail.cscempresarial.com.br` |
+| Porta (SSL) | `993` — **usar este** |
+| Porta (sem SSL) | `143` |
+| SSL/TLS | Sim |
+| IMAP IDLE | Suportado ✅ |
+| Conexões externas | Aceitas, sem restrição de IP ✅ |
+| Host SMTP | `mail.cscempresarial.com.br` (mesmo host) |
+| Porta SMTP | `587` (sem SSL) ou `465` (com SSL) |
 
 ---
 

@@ -33,10 +33,10 @@ Funcionários não técnicos da Fast. A automação é invisível — caixa de e
 - Worker IMAP deve reconectar automaticamente (RFC 2177: antes de 29 min)
 
 ## Pendências externas (bloqueia MVP)
-1. CSC Empresarial — IMAP IDLE estável?
-2. CSC Empresarial — credenciais SMTP para notificação de reflexão mensal
-3. Jurídico — LGPD: envio de conteúdo de email à Claude API é viável? Necessidade de DPA com Anthropic?
-4. Política de retenção de dados no Convex
+1. ✅ CSC Empresarial — IMAP IDLE confirmado (protocolo 20246): host `mail.cscempresarial.com.br`, porta 993 (SSL) ou 143, IDLE suportado, conexões externas aceitas, sem restrição de IP
+2. ⏳ CSC Empresarial — credenciais por funcionário (email + senha de app) ainda pendentes
+3. ⏳ Jurídico — LGPD: envio de conteúdo de email à Claude API é viável? Necessidade de DPA com Anthropic?
+4. ⏳ Política de retenção de dados no Convex
 
 ## Critérios de sucesso
 - Taxa de aceitação da classificação (% sem correção)

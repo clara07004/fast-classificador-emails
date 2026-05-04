@@ -186,9 +186,9 @@ Duração total: < 30 segundos do recebimento à ação
 
 | Recurso | Detalhe |
 |---|---|
-| Acesso IMAP ao CSC Empresarial | Porta 993, TLS, IMAP IDLE habilitado. Confirmar com CSC se IDLE é estável. |
+| Acesso IMAP ao CSC Empresarial | ✅ Confirmado (protocolo 20246): `mail.cscempresarial.com.br`, porta 993 (SSL) ou 143. IMAP IDLE suportado. Conexões externas aceitas. Sem restrição de IP. |
 | Credenciais IMAP por funcionário | Email + senha de app (não a senha pessoal) para cada funcionário piloto |
-| Acesso SMTP ao CSC Empresarial | Para envio das notificações mensais. Mesmas credenciais ou conta dedicada. |
+| Acesso SMTP ao CSC Empresarial | ✅ Confirmado: mesmo host `mail.cscempresarial.com.br`, porta 587 (sem SSL) ou 465 (SSL). Credenciais: mesmas do IMAP por funcionário. |
 | Confirmação jurídica (LGPD) | Conteúdo de emails será enviado à API da Anthropic (EUA) para classificação. Avaliar necessidade de DPA com Anthropic. |
 | Política de retenção de dados | Por quanto tempo os logs de emails classificados devem ser mantidos no Convex? |
 
@@ -240,8 +240,8 @@ Não há novo app, nova senha, novo login ou novo processo.
 
 ## Pendências que precisam de resposta do T.I.
 
-1. **CSC Empresarial suporta IMAP IDLE de forma estável?** (verificar com o provedor)
-2. **Como gerar credenciais de app por funcionário** (separado da senha pessoal, se suportado pelo CSC)
-3. **Servidor SaveInCloud tem IP fixo — informar IP ao TI para liberação no firewall do CSC, se necessário**
-4. **Jurídico: envio de conteúdo de email para API externa (EUA) é permitido pela política de dados da Fast?**
-5. **Qual a política de retenção de dados aprovada para logs de classificação?**
+1. ✅ **IMAP IDLE confirmado** — `mail.cscempresarial.com.br`, porta 993 (SSL), IDLE suportado, conexões externas aceitas, sem restrição de IP (protocolo CSC 20246)
+2. ⏳ **Como gerar credenciais por funcionário** — email + senha para cada funcionário piloto (separado da senha pessoal, se suportado pelo CSC)
+3. ✅ **IP fixo / firewall** — CSC não tem restrição de IP configurada, sem necessidade de liberação
+4. ⏳ **Jurídico: envio de conteúdo de email para API externa (EUA) é permitido pela política de dados da Fast?**
+5. ⏳ **Qual a política de retenção de dados aprovada para logs de classificação?**
