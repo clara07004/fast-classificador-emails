@@ -380,10 +380,8 @@ Para instruções completas de provisionamento do zero, veja `docs/setup-servido
 ### Passo 1 — Acessar o servidor via SSH
 
 ```bash
-ssh usuario@IP_DO_SERVIDOR
+ssh -p 3022 38076@gate.paas.saveincloud.net.br
 ```
-
-O IP e as credenciais de acesso são fornecidos pela SaveInCloud no painel de controle da conta.
 
 ---
 

@@ -5,6 +5,12 @@
 - Mínimo 1 vCPU, 1GB RAM (recomendado 2GB para múltiplos workers)
 - IP fixo (padrão SaveInCloud VPS)
 
+## 0. Acessar o servidor via SSH
+
+```bash
+ssh -p 3022 38076@gate.paas.saveincloud.net.br
+```
+
 ## 1. Instalar Node.js (via nvm)
 
 ```bash
