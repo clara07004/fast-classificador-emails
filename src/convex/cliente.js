@@ -11,7 +11,7 @@ import { getLogger } from "../logger.js";
 const log = getLogger("convex-client");
 
 const MAX_RETRIES = 3;
-const TIMEOUT_MS = 10000;
+const TIMEOUT_MS = 30000; // 30s — Convex pode ser lento na primeira chamada
 
 let clienteGlobal = null;
 

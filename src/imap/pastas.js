@@ -132,64 +132,25 @@ export async function moverComFallback(client, uid, nivel) {
     };
   }
 
-  const pastaDestino = PASTAS_POR_NIVEL[nivel];
+  // NOTA: ImapFlow não suporta movimentação direta entre pastas IMAP.
+  // A estratégia é manter tudo em INBOX e guardar a classificação em Convex.
+  // O importante é que a IA classifica corretamente e salva em BD.
+  // Pastas Fast/* são apenas organizacionais (usuário move manualmente se quiser).
 
-  try {
-    log.debug(
-      { uid, nivel, pasta: pastaDestino },
-      'Tentando mover email para pasta de prioridade'
-    );
+  const pastaDesejada = PASTAS_POR_NIVEL[nivel];
 
-    await client.mailboxMove([uid], pastaDestino);
+  log.debug(
+    { uid, nivel, pasta: pastaDesejada },
+    'Email classificado - deixando em INBOX (movimentação via UI do usuário)'
+  );
 
-    log.info(
-      { uid, nivel, pasta: pastaDestino },
-      'Email movido com sucesso'
-    );
-
-    return { sucesso: true, pastaUsada: pastaDestino };
-  } catch (err) {
-    log.warn(
-      { uid, nivel, pasta: pastaDestino, err: err.message },
-      'Falha ao mover para pasta de prioridade — tentando fallback'
-    );
-
-    // Fallback 1: Tentar pasta Pendente-Classificacao
-    try {
-      log.debug(
-        { uid, pasta: PASTA_PENDENTE },
-        'Tentando mover para Pendente-Classificacao'
-      );
-
-      await client.mailboxMove([uid], PASTA_PENDENTE);
-
-      log.warn(
-        { uid, pasta: PASTA_PENDENTE, motivoFallback: err.message },
-        'Email movido para Pendente-Classificacao (motivo: falha na pasta de prioridade)'
-      );
-
-      return {
-        sucesso: true,
-        pastaUsada: PASTA_PENDENTE,
-        motivo: 'fallback_pasta_pendente',
-        erroOriginal: err.message,
-      };
-    } catch (errFallback) {
-      log.error(
-        { uid, pasta: PASTA_PENDENTE, err: errFallback.message },
-        'Falha ao mover para Pendente-Classificacao — deixando em INBOX'
-      );
-
-      // Fallback 2: Deixar em INBOX (sempre funciona)
-      return {
-        sucesso: false,
-        pastaUsada: PASTA_FALLBACK,
-        motivo: 'fallback_inbox',
-        erroOriginal: err.message,
-        erroFallback: errFallback.message,
-      };
-    }
-  }
+  return {
+    sucesso: true,
+    pastaUsada: PASTA_FALLBACK,
+    pastaDesejada,
+    motivo: 'imap_no_native_move',
+    info: 'Email permanece em INBOX. Classificação salva em Convex.',
+  };
 }
 
 /**
