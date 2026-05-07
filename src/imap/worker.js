@@ -451,12 +451,6 @@ async function iniciarWorker() {
         logger: false,
       });
 
-      // Handler de erro na conexão
-      client.on('error', (err) => {
-        log.error({ erro: err.message }, 'Erro na conexão IMAP');
-        agendarReconexao(5000);
-      });
-
       // Conectar
       await client.connect();
       tentativaReconexao = 0; // Reset contador após sucesso
