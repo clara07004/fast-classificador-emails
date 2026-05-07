@@ -5,6 +5,7 @@ import {
   atualizarUltimoBuscado,
   atualizarStatusConexao,
 } from '../convex/cliente.js';
+import { garantirPastasFast, moverComFallback } from './pastas.js';
 
 const log = getLogger('imap');
 const INTERVALO_RECONEXAO_PREVENTIVA = 28 * 60 * 1000;
@@ -136,6 +137,20 @@ async function criarConexao() {
 
     await client.mailboxOpen('INBOX');
     log.info('INBOX aberta — monitorando via IMAP IDLE');
+
+    // Garantir que pastas Fast/* existem (primeira conexão ou após admin deletar)
+    try {
+      const resultadoPastas = await garantirPastasFast(client);
+      if (!resultadoPastas.sucesso) {
+        log.warn(
+          { detalhes: resultadoPastas.pastas },
+          'Aviso: Algumas pastas Fast/* não puderam ser criadas. Movimentação pode falhar.'
+        );
+      }
+    } catch (err) {
+      log.error({ err: err.message }, 'Erro crítico ao garantir pastas Fast/*');
+      // Continua mesmo assim — fallback em moverComFallback vai proteger
+    }
 
     // Restaurar estado de processamento da reconexão anterior
     try {
