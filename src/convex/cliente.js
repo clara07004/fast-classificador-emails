@@ -11,7 +11,7 @@ import { getLogger } from "../logger.js";
 const log = getLogger("convex-client");
 
 const MAX_RETRIES = 3;
-const TIMEOUT_MS = 30000; // 30s — Convex pode ser lento na primeira chamada
+const TIMEOUT_MS = 60000; // 60s — Convex pode ser muito lento, especialmente em cold starts
 
 let clienteGlobal = null;
 
@@ -35,13 +35,17 @@ async function chamarConvex(funcaoApi, args, ehMutation = false) {
         ? clienteGlobal.mutation(funcaoApi, args)
         : clienteGlobal.query(funcaoApi, args);
 
-      const timeoutId = setTimeout(() => {
-        throw new Error("Timeout ao chamar Convex");
-      }, TIMEOUT_MS);
+      // Usar Promise.race para timeout robusto
+      const resultado = await Promise.race([
+        promise,
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Timeout ao chamar Convex")),
+            TIMEOUT_MS
+          )
+        ),
+      ]);
 
-      const resultado = await promise;
-
-      clearTimeout(timeoutId);
       return resultado;
     } catch (err) {
       const ehTimeout = err.message?.includes("Timeout");
