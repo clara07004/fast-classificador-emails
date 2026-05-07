@@ -102,4 +102,16 @@ export default defineSchema({
     .index("by_funcionario_email", ["funcionarioId", "email"])
     .index("by_funcionario_dominio", ["funcionarioId", "dominio"]),
 
+  // Estado de processamento IMAP — garante idempotência na reconexão
+  // Rastreia qual foi o último UID processado por funcionário
+  // Previne duplicação quando worker reconecta a cada 28 minutos
+  estadoProcessamento: defineTable({
+    funcionarioId: v.id("funcionarios"),
+    ultimoUidProcessado: v.number(),
+    ultimoTimestampProcessamento: v.number(),
+    statusConexao: v.string(), // "conectado" | "desconectado" | "processando"
+    ultimaAtualizacao: v.number(),
+  })
+    .index("by_funcionario", ["funcionarioId"]),
+
 });

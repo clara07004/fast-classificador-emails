@@ -57,6 +57,16 @@ export const seedPiloto = mutation({
       atualizadoEm: agora,
     });
 
+    // 4. Estado de processamento — rastreamento de UID para idempotência
+    // Garante que na reconexão (28 min) não há duplicação de processamento
+    await ctx.db.insert("estadoProcessamento", {
+      funcionarioId,
+      ultimoUidProcessado: 0,  // Começa em 0 — próximo será > 0
+      ultimoTimestampProcessamento: agora,
+      statusConexao: "desconectado",
+      ultimaAtualizacao: agora,
+    });
+
     console.log("Funcionário piloto criado com sucesso:", funcionarioId);
     return { status: "criado", funcionarioId };
   },
