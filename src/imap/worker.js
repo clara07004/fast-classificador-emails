@@ -1,17 +1,20 @@
 import { ImapFlow } from 'imapflow';
 import { getLogger } from '../logger.js';
+import { runEnvelope } from '../envelope.js';
 import {
   obterEstadoProcessamento,
   atualizarUltimoBuscado,
   atualizarStatusConexao,
+  salvarClassificacao,
+  buscarEmailsProcessados,
 } from '../convex/cliente.js';
-import { garantirPastasFast, moverComFallback } from './pastas.js';
+import { garantirPastasFast, moverComFallback, obterPastaParaNivel } from './pastas.js';
+import { classificarEmail } from './classificador.js';
+import { analisarContextoConversa } from './thread-context.js';
 
 const log = getLogger('imap');
-const INTERVALO_RECONEXAO_PREVENTIVA = 28 * 60 * 1000;
 
 let client = null;
-let timerReconexao = null;
 
 /**
  * FilaProcessamento — Serializa processamento de emails
@@ -109,79 +112,6 @@ async function registrarUidProcessado(uid) {
   }
 }
 
-async function criarConexao() {
-  if (timerReconexao) { clearTimeout(timerReconexao); timerReconexao = null; }
-
-  log.info('Tentando conectar ao servidor IMAP...');
-
-  client = new ImapFlow({
-    host: process.env.IMAP_HOST,
-    port: parseInt(process.env.IMAP_PORT, 10),
-    secure: true,
-    auth: {
-      user: process.env.IMAP_USER,
-      pass: process.env.IMAP_PASSWORD,
-    },
-    logger: false,
-  });
-
-  client.on('error', (err) => {
-    log.error({ err: err.message }, 'Erro na conexão IMAP');
-    agendarReconexao(5000);
-  });
-
-  try {
-    await client.connect();
-    log.info('Conectado com sucesso ao servidor IMAP');
-    await atualizarStatusConexao(estadoGlobal.funcionarioId, 'conectado');
-
-    await client.mailboxOpen('INBOX');
-    log.info('INBOX aberta — monitorando via IMAP IDLE');
-
-    // Garantir que pastas Fast/* existem (primeira conexão ou após admin deletar)
-    try {
-      const resultadoPastas = await garantirPastasFast(client);
-      if (!resultadoPastas.sucesso) {
-        log.warn(
-          { detalhes: resultadoPastas.pastas },
-          'Aviso: Algumas pastas Fast/* não puderam ser criadas. Movimentação pode falhar.'
-        );
-      }
-    } catch (err) {
-      log.error({ err: err.message }, 'Erro crítico ao garantir pastas Fast/*');
-      // Continua mesmo assim — fallback em moverComFallback vai proteger
-    }
-
-    // Restaurar estado de processamento da reconexão anterior
-    try {
-      const estado = await obterEstadoProcessamento(estadoGlobal.funcionarioId);
-      if (estado && estado.ultimoUidProcessado > 0) {
-        estadoGlobal.ultimoUidProcessado = estado.ultimoUidProcessado;
-        log.info(
-          { ultimoUidProcessado: estado.ultimoUidProcessado },
-          'Estado restaurado após reconexão — buscando apenas UIDs novos'
-        );
-      }
-    } catch (err) {
-      log.warn({ err: err.message }, 'Não consegui restaurar estado, começando do zero');
-      estadoGlobal.ultimoUidProcessado = 0;
-    }
-
-    client.on('exists', (data) => {
-      log.info({ data }, 'Novo email detectado');
-      // Enfileirar sem await — permite que o próximo 'exists' chegue e se fila também
-      filaProcessamento.enfileirar(() => processarNovosEmails());
-    });
-
-    await iniciarIdle();
-    agendarReconexaoPreventiva();
-
-  } catch (err) {
-    log.error({ err: err.message }, 'Falha ao conectar ao servidor IMAP');
-    agendarReconexao(10000);
-  }
-}
-
 async function iniciarIdle() {
   try {
     log.info('Entrando em modo IDLE...');
@@ -193,35 +123,19 @@ async function iniciarIdle() {
   }
 }
 
-function agendarReconexao(delay = 5000) {
-  if (timerReconexao) clearTimeout(timerReconexao);
-  log.info({ delay_ms: delay }, 'Reagendando conexão...');
-  timerReconexao = setTimeout(criarConexao, delay);
-}
-
-function agendarReconexaoPreventiva() {
-  if (timerReconexao) clearTimeout(timerReconexao);
-  const proxima = new Date(Date.now() + INTERVALO_RECONEXAO_PREVENTIVA).toISOString();
-  log.info({ proxima_reconexao: proxima }, 'Reconexão preventiva agendada para 28 min');
-
-  timerReconexao = setTimeout(async () => {
-    log.info('Executando reconexão preventiva...');
-    try { await client.logout(); } catch (_e) { /* ignora */ }
-    await criarConexao();
-  }, INTERVALO_RECONEXAO_PREVENTIVA);
-}
-
 /**
  * Processar novos emails
  *
  * ORDEM CRÍTICA DE OPERAÇÕES (para garantir idempotência):
- * 1. Registrar UID como processado (ANTES de qualquer coisa)
- * 2. Buscar email do IMAP (sempre vai ter, foi visto em 'exists')
- * 3. Normalizar dados
- * 4. Classificar (Claude API)
- * 5. Mover para pasta Fast/*
- * 6. Criar rascunho
- * 7. Salvar em Convex
+ * 1. Buscar novos UIDs (> ultimoUidProcessado)
+ * 2. Para cada UID:
+ *    a. Registrar como processado (ANTES de qualquer ação)
+ *    b. Buscar email do IMAP
+ *    c. Normalizar dados
+ *    d. Analisar contexto de thread
+ *    e. Classificar (Claude API ou pré-classificador)
+ *    f. Mover para pasta Fast/*
+ *    g. Salvar em Convex
  *
  * Se falhar em qualquer passo:
  * - UID já está registrado em Convex
@@ -229,37 +143,436 @@ function agendarReconexaoPreventiva() {
  * - Máximo reprocessa 2x (safe)
  */
 async function processarNovosEmails() {
-  const runId = Math.random().toString(36).slice(2, 8);
-  log.info({ run_id: runId }, 'Iniciando processamento de novos emails');
+  await runEnvelope('processar-novos-emails', async (env) => {
+    if (!client || !client.mailbox) {
+      log.warn('IMAP client não pronto');
+      env.set('motivo', 'client_not_ready');
+      return;
+    }
 
+    try {
+      // Buscar novos UIDs (> ultimoUidProcessado)
+      const queryRange = `${estadoGlobal.ultimoUidProcessado + 1}:*`;
+      const novoUIDs = await client.search({ uid: queryRange });
+
+      if (novoUIDs.length === 0) {
+        log.debug({ ultimoUidProcessado: estadoGlobal.ultimoUidProcessado }, 'Nenhum email novo');
+        env.set('novos_uids', 0);
+        return;
+      }
+
+      log.info(
+        { total: novoUIDs.length, ultimoUidProcessado: estadoGlobal.ultimoUidProcessado },
+        `Encontrados ${novoUIDs.length} email(s) novo(s)`
+      );
+
+      env.set('novos_uids', novoUIDs.length);
+
+      // Enfileirar cada email para processamento serial
+      for (const uid of novoUIDs) {
+        filaProcessamento.enfileirar(() =>
+          processarEmailIndividual(client, uid, estadoGlobal.funcionarioId, env)
+        );
+      }
+    } catch (err) {
+      log.error({ err: err.message }, 'Erro ao buscar UIDs novos');
+      env.addFailed(err.message);
+      throw err;
+    }
+  });
+}
+
+/**
+ * Processar um email individual
+ *
+ * Responsável por:
+ * 1. Registrar UID (idempotência)
+ * 2. Buscar dados do IMAP
+ * 3. Classificar
+ * 4. Mover para pasta
+ * 5. Salvar em Convex
+ *
+ * @param {ImapFlow} client - Cliente IMAP
+ * @param {number} uid - UID do email
+ * @param {string} funcionarioId - ID do funcionário
+ * @param {ExecutionEnvelope} env - Envelope de execução (para tracking)
+ */
+async function processarEmailIndividual(client, uid, funcionarioId, env) {
   try {
-    // PLACEHOLDER: Será implementado nas próximas tasks
-    // Aqui vai: buscar novos emails, classificar, mover, salvar em Convex
+    // 1. REGISTRAR UID PRIMEIRO (CRÍTICO para idempotência)
+    await registrarUidProcessado(uid);
 
-    // Exemplo de fluxo (pseudocódigo):
-    // const emails = await client.search({
-    //   uid: [`${estadoGlobal.ultimoUidProcessado + 1}:*`]
-    // });
-    //
-    // for (const { uid, source } of emails) {
-    //   // ANTES de qualquer coisa, registrar como processado
-    //   await registrarUidProcessado(uid);
-    //
-    //   // Depois: normalizar, classificar, mover, etc
-    //   const email = normalizar(source);
-    //   const classificacao = await classificarComClaude(email);
-    //   await moverParaPasta(uid, classificacao.pasta);
-    //   await salvarEmConvex({ uid, email, classificacao });
-    // }
+    // 2. Buscar email do IMAP (envelope + estrutura básica)
+    let message;
+    try {
+      message = await client.fetchOne(uid, {
+        envelope: true,
+        source: true,
+        bodyStructure: true,
+      });
+    } catch (err) {
+      if (err.message?.includes('no such message')) {
+        // Email foi deletado entre a busca de UIDs e o fetch
+        log.warn({ uid }, 'Email desapareceu (deletado no servidor)');
+        env.addProcessed();
+        return;
+      }
+      throw err;
+    }
 
-    log.info({ run_id: runId, ultimoUidProcessado: estadoGlobal.ultimoUidProcessado }, 'Processamento concluído (stub)');
+    if (!message) {
+      log.warn({ uid }, 'Email vazio do IMAP');
+      env.addProcessed();
+      return;
+    }
+
+    // 3. Normalizar email
+    const email = normalizarEmail(message, uid);
+
+    if (!email.from || !email.subject) {
+      log.warn({ uid, email }, 'Email com dados insuficientes');
+      env.addProcessed();
+      return;
+    }
+
+    // 4. Analisar contexto de thread
+    let contextoThread = null;
+    if (email.inReplyTo || email.references) {
+      contextoThread = analisarContextoConversa(email);
+    }
+
+    // 5. Classificar
+    let classificacao;
+    try {
+      classificacao = await classificarEmail(email, { id: funcionarioId }, contextoThread);
+    } catch (err) {
+      log.error(
+        { uid, from: email.from, err: err.message },
+        'Erro ao classificar — usando fallback Nível 3'
+      );
+      classificacao = {
+        nivel: 3,
+        metodo: 'fallback-error',
+        reasoning: `Erro na classificação: ${err.message}`,
+        confidenceScore: 0,
+      };
+    }
+
+    // 6. Mover para pasta
+    const resultadoMover = await moverComFallback(client, uid, classificacao.nivel);
+
+    if (!resultadoMover.sucesso && resultadoMover.motivo === 'fallback_inbox') {
+      log.warn(
+        { uid, from: email.from, nivel: classificacao.nivel },
+        'Email ficou em INBOX por falha de movimentação'
+      );
+    }
+
+    // 7. Salvar em Convex
+    try {
+      await salvarClassificacao(
+        funcionarioId,
+        {
+          messageId: email.messageId,
+          uid,
+          subject: email.subject,
+          from: email.from,
+          attachments: email.attachments,
+        },
+        classificacao.nivel,
+        classificacao.reasoning,
+        {
+          idioma: 'pt-br',
+          confidenceScore: classificacao.confidenceScore,
+          metodo: classificacao.metodo,
+          pastaUsada: resultadoMover.pastaUsada,
+          contextoThread: contextoThread ? 'sim' : 'nao',
+        }
+      );
+    } catch (err) {
+      log.error(
+        { uid, from: email.from, err: err.message },
+        'Erro ao salvar em Convex (email já movido)'
+      );
+      // Não falha aqui — email já foi movido, salvamento é best-effort
+    }
+
+    log.info(
+      {
+        uid,
+        from: email.from,
+        subject: email.subject,
+        nivel: classificacao.nivel,
+        metodo: classificacao.metodo,
+        pastaUsada: resultadoMover.pastaUsada,
+      },
+      'Email processado com sucesso'
+    );
+
+    env.addProcessed();
   } catch (err) {
-    log.error({ run_id: runId, err: err.message }, 'Falha ao processar emails');
+    log.error(
+      { uid, err: err.message, stack: err.stack },
+      'Erro inesperado ao processar email'
+    );
+    env.addFailed(err.message);
     throw err;
   }
 }
 
+/**
+ * Normalizar email do ImapFlow para formato padrão interno
+ *
+ * @param {Object} message - Mensagem do ImapFlow
+ * @param {number} uid - UID do email
+ * @returns {Object} - Email normalizado
+ */
+function normalizarEmail(message, uid) {
+  const envelope = message.envelope || {};
+
+  return {
+    uid,
+    messageId: envelope.messageId || `<${uid}@unknown>`,
+    inReplyTo: envelope.inReplyTo,
+    references: envelope.references,
+    from: envelope.from?.[0]?.address || 'desconhecido',
+    to: envelope.to?.[0]?.address || '',
+    subject: envelope.subject || '(sem assunto)',
+    text: extrairTextoSimples(message),
+    date: envelope.date ? new Date(envelope.date).getTime() : Date.now(),
+    attachments: detectarAnexos(message),
+  };
+}
+
+/**
+ * Extrair texto simples do email
+ * Tira HTML e encoding, pega primeiras 800 chars
+ *
+ * @param {Object} message - Mensagem do ImapFlow
+ * @returns {string} - Texto simples
+ */
+function extrairTextoSimples(message) {
+  // ImapFlow retorna source (raw) ou parts (parsed)
+  // Para simplicidade, tomar os primeiros 800 chars do source
+  if (message.source && typeof message.source === 'string') {
+    return message.source.substring(0, 1000);
+  }
+
+  // Fallback: tentar bodyStructure
+  if (message.bodyStructure) {
+    // bodyStructure é complexo, por ora retorna vazio
+    return '';
+  }
+
+  return '';
+}
+
+/**
+ * Detectar se email tem anexos
+ * @param {Object} message - Mensagem do ImapFlow
+ * @returns {Array} - Array de anexos {filename, size}
+ */
+function detectarAnexos(message) {
+  const anexos = [];
+
+  if (!message.bodyStructure) return anexos;
+
+  const struct = message.bodyStructure;
+  if (Array.isArray(struct.childNodes)) {
+    struct.childNodes.forEach((child) => {
+      if (child.disposition === 'attachment') {
+        anexos.push({
+          filename: child.filename || 'unknown',
+          size: child.size || 0,
+        });
+      }
+    });
+  }
+
+  return anexos;
+}
+
+/**
+ * Iniciar Worker IMAP com loop de conexão e reconexão
+ *
+ * Fluxo:
+ * 1. Conecta ao IMAP com retry exponencial (até 5 tentativas)
+ * 2. Garante que pastas Fast/* existem
+ * 3. Processa emails que chegaram enquanto desconectado
+ * 4. Entra em IDLE para detectar novos emails em tempo real
+ * 5. Reconecta preventivamente a cada 27 min (RFC 2177)
+ * 6. Maneja desconexões inesperadas com retry backoff
+ *
+ * Garantias:
+ * ✓ Reconexão automática em caso de falha
+ * ✓ IDLE não bloqueia o processamento
+ * ✓ Emails processados serialmente (sem race conditions)
+ * ✓ Idempotência: UIDs registrados ANTES de qualquer ação
+ */
+async function iniciarWorker() {
+  const FUNCIONARIO_ID = process.env.PILOTO_FUNCIONARIO_ID;
+  if (!FUNCIONARIO_ID) {
+    throw new Error('PILOTO_FUNCIONARIO_ID não configurada em .env');
+  }
+
+  estadoGlobal.funcionarioId = FUNCIONARIO_ID;
+
+  let tentativaReconexao = 0;
+  const MAX_TENTATIVAS = 5;
+
+  /**
+   * Conectar ao IMAP com retry exponencial
+   */
+  async function conectarComRetry() {
+    try {
+      log.info(
+        { tentativa: tentativaReconexao + 1, max: MAX_TENTATIVAS },
+        'Tentando conectar ao IMAP...'
+      );
+
+      // Fechar conexão anterior se existir
+      if (client) {
+        try {
+          await client.logout();
+        } catch (_err) {
+          // Ignora erro ao fazer logout da conexão anterior
+        }
+      }
+
+      // Criar nova conexão
+      client = new ImapFlow({
+        host: process.env.IMAP_HOST,
+        port: parseInt(process.env.IMAP_PORT, 10),
+        secure: true,
+        auth: {
+          user: process.env.IMAP_USER,
+          pass: process.env.IMAP_PASSWORD,
+        },
+        logger: false,
+      });
+
+      // Handler de erro na conexão
+      client.on('error', (err) => {
+        log.error({ erro: err.message }, 'Erro na conexão IMAP');
+        agendarReconexao(5000);
+      });
+
+      // Conectar
+      await client.connect();
+      tentativaReconexao = 0; // Reset contador após sucesso
+      log.info('✓ Conectado ao IMAP com sucesso');
+      await atualizarStatusConexao(FUNCIONARIO_ID, 'conectado');
+
+      // Abrir INBOX
+      await client.mailboxOpen('INBOX');
+      log.info('✓ INBOX aberta');
+
+      // 1. Garantir pastas Fast/* existem
+      try {
+        const resultadoPastas = await garantirPastasFast(client);
+        if (!resultadoPastas.sucesso) {
+          log.warn(
+            { detalhes: resultadoPastas.pastas },
+            'Aviso: Algumas pastas Fast/* não criadas, usando fallback'
+          );
+        } else {
+          log.info('✓ Pastas Fast/* garantidas');
+        }
+      } catch (err) {
+        log.error({ erro: err.message }, 'Erro ao garantir pastas Fast/*');
+      }
+
+      // 2. Restaurar último UID processado (em caso de reconexão)
+      try {
+        const estado = await obterEstadoProcessamento(FUNCIONARIO_ID);
+        if (estado?.ultimoUidProcessado > 0) {
+          estadoGlobal.ultimoUidProcessado = estado.ultimoUidProcessado;
+          log.info(
+            { ultimoUid: estado.ultimoUidProcessado },
+            '✓ Estado restaurado, buscando apenas emails novos'
+          );
+        }
+      } catch (err) {
+        log.warn({ erro: err.message }, 'Estado não encontrado, começando do zero');
+      }
+
+      // 3. Processar emails que chegaram enquanto desconectado
+      try {
+        await processarNovosEmails();
+        log.info('✓ Emails pendentes processados');
+      } catch (err) {
+        log.error({ erro: err.message }, 'Erro ao processar emails pendentes');
+      }
+
+      // 4. Configurar listeners para eventos IDLE
+      client.on('exists', (data) => {
+        log.debug({ count: data.count }, '📬 Novos emails detectados');
+        filaProcessamento.enfileirar(() => processarNovosEmails());
+      });
+
+      // 5. Entrar em IDLE
+      await iniciarIdle();
+
+      return true; // Sucesso
+    } catch (err) {
+      tentativaReconexao++;
+
+      if (tentativaReconexao > MAX_TENTATIVAS) {
+        log.error(
+          { tentativas: tentativaReconexao },
+          '❌ Falha ao conectar após 5 tentativas'
+        );
+        throw err;
+      }
+
+      // Backoff exponencial
+      const delay = Math.min(30000, 1000 * Math.pow(2, tentativaReconexao - 1));
+      log.warn(
+        { tentativa: tentativaReconexao, delay_ms: delay, erro: err.message },
+        `Reconectando em ${delay}ms...`
+      );
+
+      await new Promise(r => setTimeout(r, delay));
+      return conectarComRetry(); // Tentar novamente
+    }
+  }
+
+  /**
+   * Loop principal: manter conexão IDLE e reconectar preventivamente
+   */
+  while (true) {
+    try {
+      // Conectar (com retries)
+      await conectarComRetry();
+
+      // RFC 2177: Reconectar a cada 27 min (antes do timeout de 28 min)
+      log.info('Aguardando 27 min para reconexão preventiva...');
+      await new Promise(r => setTimeout(r, 27 * 60 * 1000));
+
+      log.info('Reconectando (RFC 2177 timeout preventivo)...');
+      try {
+        await client.logout();
+      } catch (_err) {
+        // Ignora erro ao fazer logout
+      }
+    } catch (err) {
+      log.error(
+        { erro: err.message },
+        'Worker falhou, tentando reconectar em 5s...'
+      );
+      await new Promise(r => setTimeout(r, 5000));
+      tentativaReconexao = 0; // Reset para próxima tentativa
+    }
+  }
+}
+
 export async function startImapWorker() {
-  criarConexao(); // dispara sem await — event loop mantém o processo vivo
-  await new Promise(() => {}); // mantém o envelope aberto indefinidamente
+  const FUNCIONARIO_ID = process.env.PILOTO_FUNCIONARIO_ID;
+  if (!FUNCIONARIO_ID) {
+    log.error('PILOTO_FUNCIONARIO_ID não configurada em .env');
+    process.exit(1);
+  }
+
+  log.info({ funcionarioId: FUNCIONARIO_ID }, 'Iniciando IMAP Worker...');
+  await iniciarWorker();
 }
