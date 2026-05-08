@@ -16,14 +16,14 @@ const log = getLogger('imap-pastas');
  * Prioridade (1-5) → Nome da pasta no IMAP
  */
 const PASTAS_POR_NIVEL = {
-  1: 'Fast/Urgentes',
-  2: 'Fast/Importante',
-  3: 'Fast/Normal',
-  4: 'Fast/Baixa',
-  5: 'Fast/FYI',
+  1: 'INBOX.Fast-Urgente',
+  2: 'INBOX.Fast-Alta-Prioridade',
+  3: 'INBOX.Fast-Normal',
+  4: 'INBOX.Fast-Baixa',
+  5: 'INBOX.Fast-Irrelevante',
 };
 
-const PASTA_PENDENTE = 'Fast/Pendente-Classificacao';
+const PASTA_PENDENTE = 'INBOX.Fast-Pendente-Classificacao';
 const PASTA_FALLBACK = 'INBOX'; // Se tudo falhar, deixa em INBOX
 
 /**
@@ -114,7 +114,7 @@ export async function garantirPastasFast(client) {
  * Mover email para pasta com fallback
  *
  * Ordem de tentativa:
- * 1. Mover para pasta de prioridade (Fast/Urgentes, etc)
+ * 1. Mover para pasta de prioridade (Fast-Urgente, etc)
  * 2. Se falhar, tentar Pendente-Classificacao
  * 3. Se falhar, deixar em INBOX (fallback final)
  *
@@ -132,24 +132,64 @@ export async function moverComFallback(client, uid, nivel) {
     };
   }
 
-  // NOTA: ImapFlow não suporta movimentação direta entre pastas IMAP.
-  // A estratégia é manter tudo em INBOX e guardar a classificação em Convex.
-  // O importante é que a IA classifica corretamente e salva em BD.
-  // Pastas Fast/* são apenas organizacionais (usuário move manualmente se quiser).
-
   const pastaDesejada = PASTAS_POR_NIVEL[nivel];
 
-  log.debug(
-    { uid, nivel, pasta: pastaDesejada },
-    'Email classificado - deixando em INBOX (movimentação via UI do usuário)'
+  // Tentar mover para pasta de prioridade
+  try {
+    log.debug(
+      { uid, nivel, pasta: pastaDesejada },
+      'Movendo email para pasta de prioridade'
+    );
+
+    await client.messageMove(uid, pastaDesejada);
+
+    log.info(
+      { uid, nivel, pasta: pastaDesejada },
+      'Email movido com sucesso'
+    );
+
+    return {
+      sucesso: true,
+      pastaUsada: pastaDesejada,
+    };
+  } catch (err) {
+    log.warn(
+      { uid, err: err.message, pastaDesejada },
+      'Falha ao mover para pasta de prioridade, tentando Pendente-Classificacao'
+    );
+  }
+
+  // Fallback 1: Tentar Pendente-Classificacao
+  try {
+    await client.messageMove(uid, PASTA_PENDENTE);
+
+    log.info(
+      { uid, pasta: PASTA_PENDENTE },
+      'Email movido para Pendente-Classificacao'
+    );
+
+    return {
+      sucesso: true,
+      pastaUsada: PASTA_PENDENTE,
+      aviso: 'Movido para Pendente-Classificacao (fallback)',
+    };
+  } catch (err) {
+    log.warn(
+      { uid, err: err.message },
+      'Falha ao mover para Pendente-Classificacao, deixando em INBOX'
+    );
+  }
+
+  // Fallback 2: Deixar em INBOX (não tenta mover)
+  log.warn(
+    { uid, pastaDesejada },
+    'Email deixado em INBOX (fallback final)'
   );
 
   return {
     sucesso: true,
     pastaUsada: PASTA_FALLBACK,
-    pastaDesejada,
-    motivo: 'imap_no_native_move',
-    info: 'Email permanece em INBOX. Classificação salva em Convex.',
+    aviso: 'Email deixado em INBOX (fallback final)',
   };
 }
 

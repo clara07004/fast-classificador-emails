@@ -9,29 +9,32 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
+    "dev": "node --watch src/worker-classify.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:classifier": "node test-classifier-v2.js",
+    "setup:folders": "node scripts/setup-imap-folders.js",
     "lint": "eslint src tests",
     "lint:fix": "eslint src tests --fix",
     "format": "prettier --write 'src/**/*.js' 'tests/**/*.js'"
   },
   "dependencies": {
-    "dotenv": "^16.4.5",
-    "pino": "^9.0.0",
-    "pino-pretty": "^11.0.0",
-    "imapflow": "^1.0.0",
     "@anthropic-ai/sdk": "^0.39.0",
     "convex": "^1.19.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.0",
+    "imapflow": "^1.0.0",
+    "mailparser": "^3.9.8",
     "nodemailer": "^6.9.0",
-    "express": "^4.19.0"
+    "pino": "^9.0.0",
+    "pino-pretty": "^11.0.0"
   },
   "devDependencies": {
-    "vitest": "^1.6.0",
-    "eslint": "^9.0.0",
-    "prettier": "^3.3.0",
     "@eslint/js": "^9.0.0",
-    "globals": "^15.0.0"
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0",
+    "prettier": "^3.3.0",
+    "vitest": "^1.6.0"
   },
   "author": "Clara Barbosa <clara.barbosa@fastdrywall.com.br>",
   "license": "UNLICENSED",
