@@ -1,6 +1,7 @@
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { ClassifierV2 } from './classifiers/v2-classifier.js';
+import { MovimentoMonitor } from './imap/movimento-monitor.js';
 
 class EmailClassifier {
   constructor() {
@@ -11,6 +12,7 @@ class EmailClassifier {
     this.lastSeenUid = 0;
     this.processing = false;
     this.classifier = new ClassifierV2();
+    this.movimentoMonitor = null;
   }
 
   async connect() {
@@ -96,6 +98,13 @@ class EmailClassifier {
 
       // Inicia IDLE (não awaita, deixa rodar em background)
       this.imap.idle();
+
+      // Inicia monitor de movimentação (Fase 2 — Feedback Loop)
+      if (!this.movimentoMonitor) {
+        this.movimentoMonitor = new MovimentoMonitor(this.imap, null); // null = Convex client sera adicionado depois
+        this.movimentoMonitor.start();
+        console.log('🔍 Monitor de movimentação iniciado\n');
+      }
     } catch (error) {
       console.error('❌ Erro ao iniciar monitoramento:', error.message);
       await this.close();
@@ -215,6 +224,9 @@ class EmailClassifier {
 
   async close() {
     try {
+      if (this.movimentoMonitor) {
+        await this.movimentoMonitor.stop();
+      }
       if (this.imap) {
         await this.imap.close();
       }

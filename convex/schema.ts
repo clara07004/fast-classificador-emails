@@ -114,4 +114,26 @@ export default defineSchema({
   })
     .index("by_funcionario", ["funcionarioId"]),
 
+  email_movements: defineTable({
+    funcionarioId: v.id("funcionarios"),
+    uid: v.number(),
+    subject: v.string(),
+    from: v.string(),
+    received_at: v.number(),
+    classified_as: v.string(), // P1-P5
+    confidence: v.optional(v.number()),
+    system_folder: v.string(), // Onde sistema moveu (ex: INBOX.Fast-Urgente)
+    classification_timestamp: v.number(),
+    user_moved_to: v.string(), // Onde usuário moveu
+    feedback_timestamp: v.number(),
+    feedback_delay_minutes: v.number(), // Tempo entre classificação e movimento
+    is_correct: v.boolean(), // Sistema acertou?
+    expected_priority: v.optional(v.string()), // O que realmente era (P1-P5)
+    correction_reason: v.optional(v.string()), // Por que usuário discordou
+    is_learning_example: v.boolean(), // Será usado pra Fase 2?
+  })
+    .index("by_funcionario", ["funcionarioId"])
+    .index("by_feedback_date", ["feedback_timestamp"])
+    .index("by_is_correct", ["is_correct"]),
+
 });

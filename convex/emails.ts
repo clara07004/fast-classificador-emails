@@ -186,3 +186,97 @@ export const buscarEmailPorId = query({
     return await ctx.db.get(args.emailId);
   },
 });
+
+/**
+ * Mutation: Registrar movimento de email (Feedback Loop)
+ *
+ * Detecta quando usuário move um email pra pasta diferente,
+ * interpretando como feedback sobre classificação automática.
+ */
+export const registrarMovimento = mutation({
+  args: {
+    funcionarioId: v.id("funcionarios"),
+    uid: v.number(),
+    subject: v.string(),
+    from: v.string(),
+    received_at: v.number(),
+    classified_as: v.string(), // P1-P5
+    confidence: v.optional(v.number()),
+    system_folder: v.string(),
+    classification_timestamp: v.number(),
+    user_moved_to: v.string(),
+    feedback_timestamp: v.number(),
+    expected_priority: v.optional(v.string()),
+    correction_reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const feedbackDelayMs = args.feedback_timestamp - args.classification_timestamp;
+    const feedbackDelayMinutes = Math.round(feedbackDelayMs / (60 * 1000));
+
+    // Mapear pasta para nível
+    const PASTA_PARA_NIVEL = {
+      'INBOX.Fast-Urgente': 'P1',
+      'INBOX.Fast-Alta-Prioridade': 'P2',
+      'INBOX.Fast-Normal': 'P3',
+      'INBOX.Fast-Baixa': 'P4',
+      'INBOX.Fast-Irrelevante': 'P5',
+      'INBOX.Fast-Pendente-Classificacao': 'PENDENTE',
+    };
+
+    const systemLevel = args.classified_as;
+    const userLevel = PASTA_PARA_NIVEL[args.user_moved_to] || 'DESCONHECIDO';
+    const isCorrect = systemLevel === userLevel;
+
+    const movimentoId = await ctx.db.insert("email_movements", {
+      funcionarioId: args.funcionarioId,
+      uid: args.uid,
+      subject: args.subject,
+      from: args.from,
+      received_at: args.received_at,
+      classified_as: args.classified_as,
+      confidence: args.confidence,
+      system_folder: args.system_folder,
+      classification_timestamp: args.classification_timestamp,
+      user_moved_to: args.user_moved_to,
+      feedback_timestamp: args.feedback_timestamp,
+      feedback_delay_minutes: feedbackDelayMinutes,
+      is_correct: isCorrect,
+      expected_priority: args.expected_priority || (isCorrect ? systemLevel : userLevel),
+      correction_reason: args.correction_reason,
+      is_learning_example: true, // Sempre True pra Fase 2
+    });
+
+    return {
+      sucesso: true,
+      movimentoId,
+      isCorrect,
+      feedbackDelayMinutes,
+    };
+  },
+});
+
+/**
+ * Query: Buscar movimentos recentes (para relatório semanal)
+ */
+export const buscarMovimentosPorPeriodo = query({
+  args: {
+    funcionarioId: v.id("funcionarios"),
+    dataInicio: v.number(),
+    dataFim: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const movimentos = await ctx.db
+      .query("email_movements")
+      .withIndex("by_funcionario", (q) =>
+        q.eq("funcionarioId", args.funcionarioId)
+      )
+      .order("desc");
+
+    // Filtrar por período
+    return movimentos
+      .filter((m) =>
+        m.feedback_timestamp >= args.dataInicio &&
+        m.feedback_timestamp <= args.dataFim
+      );
+  },
+});
