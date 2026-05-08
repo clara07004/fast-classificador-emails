@@ -195,13 +195,13 @@ class EmailClassifier {
         console.log(`  📋 Pedidos secundários: ${result.classification.pedidos_secundarios.join(', ')}`);
       }
 
-      // Mapeia P1-P5 para pastas
+      // Mapeia P1-P5 para pastas existentes
       const folderMap = {
-        'P1': 'INBOX.Fast-P1-Urgente',
-        'P2': 'INBOX.Fast-P2-Alta',
-        'P3': 'INBOX.Fast-P3-Normal',
-        'P4': 'INBOX.Fast-P4-Baixa',
-        'P5': 'INBOX.Fast-P5-Irrelevante'
+        'P1': 'INBOX.Fast-Urgente',
+        'P2': 'INBOX.Fast-Alta-Prioridade',
+        'P3': 'INBOX.Fast-Normal',
+        'P4': 'INBOX.Fast-Baixa',
+        'P5': 'INBOX.Fast-Irrelevante'
       };
 
       const targetFolder = folderMap[priority] || 'INBOX.Fast-Pendente-Classificacao';
