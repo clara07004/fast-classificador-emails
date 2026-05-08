@@ -2,6 +2,7 @@ import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { ClassifierV2 } from './classifiers/v2-classifier.js';
 import { MovimentoMonitor } from './imap/movimento-monitor.js';
+import { LearningBlock } from './feedback/learning-block.js';
 
 class EmailClassifier {
   constructor() {
@@ -13,6 +14,7 @@ class EmailClassifier {
     this.processing = false;
     this.classifier = new ClassifierV2();
     this.movimentoMonitor = null;
+    this.learningBlock = new LearningBlock(null); // Convex client será adicionado depois
   }
 
   async connect() {
@@ -175,7 +177,12 @@ class EmailClassifier {
         senderEnrichment: null
       };
 
-      // Classifica usando novo classifier
+      // Injetar aprendizado do feedback anterior (Fase 2)
+      // TODO: Passar funcionarioId real quando estiver disponível
+      const funcionarioId = 'placeholder-funcionario'; // Será substituído por ID real
+      await this.learningBlock.injetarAprendizado(this.classifier, funcionarioId);
+
+      // Classifica usando novo classifier (agora com aprendizado)
       const result = await this.classifier.classify(emailData);
 
       if (!result.success) {
