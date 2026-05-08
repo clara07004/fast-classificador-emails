@@ -11,6 +11,7 @@
 
 import { getLogger } from '../logger.js';
 import nodemailer from 'nodemailer';
+import { api } from '../../convex/_generated/api.js';
 
 const log = getLogger('weekly-report');
 
@@ -26,18 +27,17 @@ class WeeklyFeedbackReport {
   async buscarMovimentosDaSemana(funcionarioId, dataInicio, dataFim) {
     try {
       if (!this.convex) {
-        log.warn('Convex não disponível');
+        log.warn('Convex não disponível para buscar movimentos');
         return [];
       }
 
-      // TODO: Chamar buscarMovimentosPorPeriodo quando Convex estiver integrado
-      // const movimentos = await this.convex.query(
-      //   api.emails.buscarMovimentosPorPeriodo,
-      //   { funcionarioId, dataInicio, dataFim }
-      // );
+      const movimentos = await this.convex.query(
+        api.emails.buscarMovimentosPorPeriodo,
+        { funcionarioId, dataInicio, dataFim }
+      );
 
-      log.debug({ funcionarioId }, 'Buscando movimentos da semana (placeholder)');
-      return [];
+      log.debug({ funcionarioId, quantidade: movimentos.length }, 'Movimentos buscados');
+      return movimentos;
     } catch (err) {
       log.error(
         { funcionarioId, erro: err.message },

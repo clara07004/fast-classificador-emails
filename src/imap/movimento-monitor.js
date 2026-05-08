@@ -10,6 +10,7 @@
 
 import { getLogger } from '../logger.js';
 import { obterTodasAsPastas } from './pastas.js';
+import { api } from '../../convex/_generated/api.js';
 
 const log = getLogger('movimento-monitor');
 
@@ -254,18 +255,21 @@ class MovimentoMonitor {
    */
   async registrarMovimento(movimento) {
     try {
-      // TODO: Implementar mutation Convex quando schema existir
-      log.debug(
+      if (!this.convex) {
+        log.warn('Convex não disponível para registrar movimento');
+        return;
+      }
+
+      await this.convex.mutation(api.emails.registrarMovimento, movimento);
+
+      log.info(
         {
           uid: movimento.uid,
           from: movimento.from_folder,
           to: movimento.to_folder,
         },
-        '📝 Movimento registrado: aguardando integration Convex'
+        '✅ Movimento registrado em Convex'
       );
-
-      // Aqui será chamado:
-      // await this.convex.mutation(api.emails.registrarMovimento, movimento);
     } catch (err) {
       log.error(
         { uid: movimento.uid, erro: err.message },

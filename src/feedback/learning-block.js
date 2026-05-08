@@ -8,6 +8,7 @@
  */
 
 import { getLogger } from '../logger.js';
+import { api } from '../../convex/_generated/api.js';
 
 const log = getLogger('learning-block');
 
@@ -29,15 +30,13 @@ class LearningBlock {
         return [];
       }
 
-      // TODO: Implementar query no Convex que busca últimas correções
-      // const movimentos = await this.convex.query(
-      //   api.emails.buscarMovimentosPorFuncionario,
-      //   { funcionarioId, limite: MAX_RECENT_CORRECTIONS }
-      // );
+      const movimentos = await this.convex.query(
+        api.emails.buscarMovimentosPorFuncionario,
+        { funcionarioId, limite: MAX_RECENT_CORRECTIONS }
+      );
 
-      // Por enquanto, retorna vazio — será preenchido quando Convex estiver integrado
-      log.debug({ funcionarioId }, 'Buscando correções (placeholder)');
-      return [];
+      log.debug({ funcionarioId, quantidade: movimentos.length }, 'Correções buscadas');
+      return movimentos;
     } catch (err) {
       log.warn(
         { funcionarioId, erro: err.message },
