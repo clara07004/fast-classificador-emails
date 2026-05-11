@@ -1,3 +1,19 @@
 {
-  "python.terminal.useEnvFile": true
+  "python.terminal.useEnvFile": true,
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash(git commit*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -Command \"& '$PWD/.claude/sync-to-github.ps1'\" 2>&1 | Write-Host",
+            "timeout": 30,
+            "statusMessage": "Validando push para GitHub...",
+            "shell": "powershell"
+          }
+        ]
+      }
+    ]
+  }
 }
