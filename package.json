@@ -10,6 +10,13 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/worker-classify.js",
+    "pm2:start": "pm2 start pm2.config.cjs",
+    "pm2:stop": "pm2 stop classificador-emails",
+    "pm2:restart": "pm2 restart classificador-emails",
+    "pm2:logs": "pm2 logs classificador-emails",
+    "pm2:status": "pm2 status",
+    "pm2:delete": "pm2 delete classificador-emails",
+    "pm2:install": "npm install -g pm2 && pm2 install pm2-auto-pull",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:classifier": "node test-classifier-v2.js",

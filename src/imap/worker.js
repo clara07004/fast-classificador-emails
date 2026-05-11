@@ -401,11 +401,13 @@ function detectarAnexos(message) {
  * 3. Processa emails que chegaram enquanto desconectado
  * 4. Entra em IDLE para detectar novos emails em tempo real
  * 5. Reconecta preventivamente a cada 27 min (RFC 2177)
- * 6. Maneja desconexões inesperadas com retry backoff
+ * 6. Watchdog detecta desconexões inesperadas a cada 1 min
+ * 7. Maneja desconexões inesperadas com retry backoff
  *
  * Garantias:
- * ✓ Reconexão automática em caso de falha
- * ✓ IDLE não bloqueia o processamento
+ * ✓ Reconexão automática em caso de falha (max 5 tentativas)
+ * ✓ Heartbeat/watchdog detecta mortes silenciosas
+ * ✓ IDLE com timeout robusto
  * ✓ Emails processados serialmente (sem race conditions)
  * ✓ Idempotência: UIDs registrados ANTES de qualquer ação
  */
@@ -419,6 +421,31 @@ async function iniciarWorker() {
 
   let tentativaReconexao = 0;
   const MAX_TENTATIVAS = 5;
+  let ultimoHeartbeat = Date.now();
+  let watchdogInterval = null;
+
+  /**
+   * Iniciar watchdog — detecta desconexões silenciosas a cada 1 min
+   */
+  function iniciarWatchdog() {
+    if (watchdogInterval) clearInterval(watchdogInterval);
+
+    watchdogInterval = setInterval(() => {
+      const agora = Date.now();
+      const tempoSemAtividade = agora - ultimoHeartbeat;
+
+      // Se nada aconteceu por 90 segundos, algo está errado
+      if (tempoSemAtividade > 90000) {
+        log.warn(
+          { tempoSemAtividade },
+          'Watchdog: Nenhuma atividade detectada, reconectando...'
+        );
+        if (client) {
+          client.close().catch(() => {});
+        }
+      }
+    }, 60000); // Check a cada 1 min
+  }
 
   /**
    * Conectar ao IMAP com retry exponencial
@@ -437,6 +464,7 @@ async function iniciarWorker() {
         } catch (_err) {
           // Ignora erro ao fazer logout da conexão anterior
         }
+        client = null;
       }
 
       // Criar nova conexão
@@ -501,61 +529,97 @@ async function iniciarWorker() {
       // 4. Configurar listeners para eventos IDLE
       client.on('exists', (data) => {
         log.debug({ count: data.count }, '📬 Novos emails detectados');
+        ultimoHeartbeat = Date.now();
         filaProcessamento.enfileirar(() => processarNovosEmails());
       });
 
-      // 5. Entrar em IDLE
-      await iniciarIdle();
+      // 5. Iniciar watchdog e entrar em IDLE
+      iniciarWatchdog();
+      await iniciarIdleComTimeout();
 
-      return true; // Sucesso
     } catch (err) {
       tentativaReconexao++;
 
       if (tentativaReconexao > MAX_TENTATIVAS) {
         log.error(
-          { tentativas: tentativaReconexao },
-          '❌ Falha ao conectar após 5 tentativas'
+          { tentativas: tentativaReconexao, erro: err.message },
+          '❌ Falha ao conectar após 5 tentativas — aguardando 30s antes de retry'
         );
-        throw err;
+        // Não rethrow — continua tentando indefinidamente
+        tentativaReconexao = 0;
+      } else {
+        // Backoff exponencial
+        const delay = Math.min(30000, 1000 * Math.pow(2, tentativaReconexao - 1));
+        log.warn(
+          { tentativa: tentativaReconexao, delay_ms: delay, erro: err.message },
+          `Reconectando em ${delay}ms...`
+        );
+        await new Promise(r => setTimeout(r, delay));
       }
 
-      // Backoff exponencial
-      const delay = Math.min(30000, 1000 * Math.pow(2, tentativaReconexao - 1));
-      log.warn(
-        { tentativa: tentativaReconexao, delay_ms: delay, erro: err.message },
-        `Reconectando em ${delay}ms...`
-      );
-
-      await new Promise(r => setTimeout(r, delay));
-      return conectarComRetry(); // Tentar novamente
+      throw err;
     }
   }
 
   /**
-   * Loop principal: manter conexão IDLE e reconectar preventivamente
+   * Iniciar IDLE com timeout seguro
+   * Se IDLE morrer ou timeout, lança erro para reconectar
    */
-  while (true) {
-    try {
-      // Conectar (com retries)
-      await conectarComRetry();
+  async function iniciarIdleComTimeout() {
+    return new Promise((resolve, reject) => {
+      // Timeout de 25 min (seguro — IDLE timeout é 28 min)
+      const timeoutHandle = setTimeout(() => {
+        log.info('RFC 2177: Timeout preventivo de IDLE (25 min)');
+        if (client) {
+          client.close().catch(() => {});
+        }
+        reject(new Error('IDLE timeout preventivo (RFC 2177)'));
+      }, 25 * 60 * 1000);
 
-      // RFC 2177: Reconectar a cada 27 min (antes do timeout de 28 min)
-      log.info('Aguardando 27 min para reconexão preventiva...');
-      await new Promise(r => setTimeout(r, 27 * 60 * 1000));
-
-      log.info('Reconectando (RFC 2177 timeout preventivo)...');
       try {
-        await client.logout();
-      } catch (_err) {
-        // Ignora erro ao fazer logout
+        if (!client || !client.mailbox) {
+          reject(new Error('IMAP client não pronto para IDLE'));
+          return;
+        }
+
+        log.info('Entrando em modo IDLE...');
+        ultimoHeartbeat = Date.now();
+
+        client.idle().then(() => {
+          clearTimeout(timeoutHandle);
+          resolve();
+        }).catch((err) => {
+          clearTimeout(timeoutHandle);
+          if (err.message !== 'Connection closed') {
+            log.error({ erro: err.message }, 'Erro durante IDLE');
+          }
+          reject(err);
+        });
+      } catch (err) {
+        clearTimeout(timeoutHandle);
+        reject(err);
       }
+    });
+  }
+
+  /**
+   * Loop principal: manter conexão IDLE com reconexão robusta
+   */
+  let continuarTentando = true;
+
+  while (continuarTentando) {
+    try {
+      // Conectar (com retries — lança erro se falhar 5x)
+      await conectarComRetry();
+      // Se chegou aqui, está conectado e em IDLE (que é bloqueante até disconnect)
+      // IDLE saiu (timeout ou disconnect), volta ao início para reconectar
     } catch (err) {
       log.error(
         { erro: err.message },
-        'Worker falhou, tentando reconectar em 5s...'
+        'Worker falhou, tentando reconectar em 10s...'
       );
-      await new Promise(r => setTimeout(r, 5000));
-      tentativaReconexao = 0; // Reset para próxima tentativa
+      tentativaReconexao = 0; // Reset para próxima bateria de tentativas
+      await new Promise(r => setTimeout(r, 10000));
     }
   }
 }
