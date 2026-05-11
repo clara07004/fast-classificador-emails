@@ -134,63 +134,87 @@ export async function moverComFallback(client, uid, nivel) {
 
   const pastaDesejada = PASTAS_POR_NIVEL[nivel];
 
-  // Tentar mover para pasta de prioridade
+  // Obter lock do mailbox para evitar conflito com IDLE.
+  // O ImapFlow pausa o IDLE automaticamente enquanto o lock está tomado e
+  // retoma quando liberado. Sem o lock, messageMove em paralelo com IDLE
+  // pode falhar com "Connection not available".
+  let lock;
   try {
-    log.debug(
-      { uid, nivel, pasta: pastaDesejada },
-      'Movendo email para pasta de prioridade'
-    );
-
-    await client.messageMove(uid, pastaDesejada);
-
-    log.info(
-      { uid, nivel, pasta: pastaDesejada },
-      'Email movido com sucesso'
-    );
-
-    return {
-      sucesso: true,
-      pastaUsada: pastaDesejada,
-    };
-  } catch (err) {
-    log.warn(
-      { uid, err: err.message, pastaDesejada },
-      'Falha ao mover para pasta de prioridade, tentando Pendente-Classificacao'
-    );
-  }
-
-  // Fallback 1: Tentar Pendente-Classificacao
-  try {
-    await client.messageMove(uid, PASTA_PENDENTE);
-
-    log.info(
-      { uid, pasta: PASTA_PENDENTE },
-      'Email movido para Pendente-Classificacao'
-    );
-
-    return {
-      sucesso: true,
-      pastaUsada: PASTA_PENDENTE,
-      aviso: 'Movido para Pendente-Classificacao (fallback)',
-    };
+    lock = await client.getMailboxLock('INBOX');
   } catch (err) {
     log.warn(
       { uid, err: err.message },
-      'Falha ao mover para Pendente-Classificacao, deixando em INBOX'
+      'Falha ao obter lock do mailbox, deixando em INBOX'
     );
+    return {
+      sucesso: true,
+      pastaUsada: PASTA_FALLBACK,
+      aviso: 'Falha ao obter lock — email deixado em INBOX',
+    };
   }
 
-  // Fallback 2: Deixar em INBOX (não tenta mover)
-  log.warn(
-    { uid, pastaDesejada },
-    'Email deixado em INBOX (fallback final)'
-  );
+  try {
+    // Tentar mover para pasta de prioridade
+    try {
+      log.debug(
+        { uid, nivel, pasta: pastaDesejada },
+        'Movendo email para pasta de prioridade'
+      );
 
-  return {
-    sucesso: true,
-    pastaUsada: PASTA_FALLBACK,
-    aviso: 'Email deixado em INBOX (fallback final)',
-  };
+      await client.messageMove(uid, pastaDesejada);
+
+      log.info(
+        { uid, nivel, pasta: pastaDesejada },
+        'Email movido com sucesso'
+      );
+
+      return {
+        sucesso: true,
+        pastaUsada: pastaDesejada,
+      };
+    } catch (err) {
+      log.warn(
+        { uid, err: err.message, pastaDesejada },
+        'Falha ao mover para pasta de prioridade, tentando Pendente-Classificacao'
+      );
+    }
+
+    // Fallback 1: Tentar Pendente-Classificacao
+    try {
+      await client.messageMove(uid, PASTA_PENDENTE);
+
+      log.info(
+        { uid, pasta: PASTA_PENDENTE },
+        'Email movido para Pendente-Classificacao'
+      );
+
+      return {
+        sucesso: true,
+        pastaUsada: PASTA_PENDENTE,
+        aviso: 'Movido para Pendente-Classificacao (fallback)',
+      };
+    } catch (err) {
+      log.warn(
+        { uid, err: err.message },
+        'Falha ao mover para Pendente-Classificacao, deixando em INBOX'
+      );
+    }
+
+    // Fallback 2: Deixar em INBOX (não tenta mover)
+    log.warn(
+      { uid, pastaDesejada },
+      'Email deixado em INBOX (fallback final)'
+    );
+
+    return {
+      sucesso: true,
+      pastaUsada: PASTA_FALLBACK,
+      aviso: 'Email deixado em INBOX (fallback final)',
+    };
+  } finally {
+    // Sempre liberar o lock
+    lock.release();
+  }
 }
 
 /**

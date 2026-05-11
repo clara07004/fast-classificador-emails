@@ -168,11 +168,19 @@ async function processarNovosEmails() {
 
       env.set('novos_uids', novoUIDs.length);
 
-      // Enfileirar cada email para processamento serial
+      // Enfileirar cada email para processamento serial.
+      // Coletar a última promise pra aguardar o término real do processamento —
+      // sem isto, processarNovosEmails retorna antes das tarefas executarem,
+      // o IDLE entra em paralelo e gera "Connection not available" nos commands
+      // concorrentes (messageMove) executados pela fila durante o IDLE.
+      let ultimaPromise;
       for (const uid of novoUIDs) {
-        filaProcessamento.enfileirar(() =>
+        ultimaPromise = filaProcessamento.enfileirar(() =>
           processarEmailIndividual(client, uid, estadoGlobal.funcionarioId, env)
         );
+      }
+      if (ultimaPromise) {
+        await ultimaPromise;
       }
     } catch (err) {
       log.error({ err: err.message }, 'Erro ao buscar UIDs novos');
