@@ -1,8 +1,11 @@
+import dotenv from 'dotenv';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { ClassifierV2 } from './classifiers/v2-classifier.js';
 import { MovimentoMonitor } from './imap/movimento-monitor.js';
 import { LearningBlock } from './feedback/learning-block.js';
+
+dotenv.config();
 
 class EmailClassifier {
   constructor() {
@@ -26,7 +29,7 @@ class EmailClassifier {
         secure: true,
         auth: {
           user: process.env.IMAP_USER,
-          pass: process.env.IMAP_PASS
+          pass: process.env.IMAP_PASSWORD
         }
       });
 
