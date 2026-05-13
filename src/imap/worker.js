@@ -431,6 +431,29 @@ async function iniciarWorker() {
   const MAX_TENTATIVAS = 5;
   let ultimoHeartbeat = Date.now();
   let watchdogInterval = null;
+  let pollingInterval = null;
+
+  /**
+   * Polling de fallback — a cada 60s força uma checagem de emails novos.
+   *
+   * Motivação: o IMAP IDLE do servidor CSC pode cair silenciosamente
+   * (a conexão fica viva mas o evento 'exists' nunca dispara). Sem polling,
+   * emails ficam parados na INBOX até o próximo reconnect preventivo (até 25 min).
+   *
+   * Como complementa o IDLE:
+   * - Se IDLE estiver vivo, o polling roda search() e não encontra nada (custa ~0).
+   * - Se IDLE morreu silenciosamente, o polling captura em no máximo 60s.
+   *
+   * Usa a fila de processamento pra não conflitar com chamadas concorrentes.
+   */
+  function iniciarPolling() {
+    if (pollingInterval) clearInterval(pollingInterval);
+
+    pollingInterval = setInterval(() => {
+      if (!client || !client.mailbox) return; // Cliente não pronto, pular ciclo
+      filaProcessamento.enfileirar(() => processarNovosEmails());
+    }, 60000); // 60s
+  }
 
   /**
    * Iniciar watchdog — detecta desconexões silenciosas a cada 1 min
@@ -552,8 +575,9 @@ async function iniciarWorker() {
         filaProcessamento.enfileirar(() => processarNovosEmails());
       });
 
-      // 5. Iniciar watchdog e entrar em IDLE
+      // 5. Iniciar watchdog + polling de fallback e entrar em IDLE
       iniciarWatchdog();
+      iniciarPolling();
       await iniciarIdleComTimeout();
 
     } catch (err) {
