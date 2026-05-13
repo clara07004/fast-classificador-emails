@@ -442,8 +442,13 @@ async function iniciarWorker() {
       const agora = Date.now();
       const tempoSemAtividade = agora - ultimoHeartbeat;
 
-      // Se nada aconteceu por 90 segundos, algo está errado
-      if (tempoSemAtividade > 90000) {
+      // Watchdog atua só se algo realmente travou. O reconnect preventivo
+      // do RFC 2177 (25 min) já cobre a manutenção rotineira da conexão IDLE,
+      // então só fazemos sentido entrar em ação se passar muito mais que isso
+      // sem nenhuma atividade — sinal de IDLE morto silenciosamente.
+      // (Antes era 90s, mas isso dispara desnecessariamente em horas calmas
+      // sem emails chegando, gerando reconnect a cada 2 min.)
+      if (tempoSemAtividade > 30 * 60 * 1000) {
         log.warn(
           { tempoSemAtividade },
           'Watchdog: Nenhuma atividade detectada, reconectando...'
