@@ -449,7 +449,9 @@ async function iniciarWorker() {
           'Watchdog: Nenhuma atividade detectada, reconectando...'
         );
         if (client) {
-          client.close().catch(() => {});
+          // client.close() pode retornar undefined (não Promise) ou lançar
+          // exceção se conexão já foi destruída. Defender ambos os casos.
+          try { client.close()?.catch?.(() => {}); } catch (_err) { /* ignora */ }
         }
       }
     }, 60000); // Check a cada 1 min
@@ -579,7 +581,8 @@ async function iniciarWorker() {
       const timeoutHandle = setTimeout(() => {
         log.info('RFC 2177: Timeout preventivo de IDLE (25 min)');
         if (client) {
-          client.close().catch(() => {});
+          // Defender contra client.close() retornando undefined ou lançando
+          try { client.close()?.catch?.(() => {}); } catch (_err) { /* ignora */ }
         }
         reject(new Error('IDLE timeout preventivo (RFC 2177)'));
       }, 25 * 60 * 1000);
