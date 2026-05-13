@@ -453,6 +453,10 @@ async function iniciarWorker() {
           { tempoSemAtividade },
           'Watchdog: Nenhuma atividade detectada, reconectando...'
         );
+        // Reset do heartbeat pra evitar que o watchdog dispare em loop
+        // a cada minuto. Se o close() não conseguir derrubar o IDLE
+        // (estado zumbi), o RFC 2177 reconnect (25min) cobre.
+        ultimoHeartbeat = Date.now();
         if (client) {
           // client.close() pode retornar undefined (não Promise) ou lançar
           // exceção se conexão já foi destruída. Defender ambos os casos.
