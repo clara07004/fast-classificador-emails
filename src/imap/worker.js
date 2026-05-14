@@ -545,14 +545,17 @@ async function iniciarWorker() {
         log.error({ erro: err.message }, 'Erro ao processar emails pendentes');
       }
 
-      // 4. Configurar listeners para eventos IDLE
+      // 4. Configurar listener para eventos IDLE.
+      // O listener apenas atualiza o heartbeat — o loop em iniciarIdleComTimeout
+      // chama processarNovosEmails() em cada ciclo de 60s, então não precisamos
+      // disparar processamento aqui (evita race condition entre listener,
+      // loop IDLE e reconnect que vimos antes em produção).
       client.on('exists', (data) => {
-        log.debug({ count: data.count }, '📬 Novos emails detectados');
+        log.debug({ count: data.count }, '📬 Notificação IMAP IDLE recebida');
         ultimoHeartbeat = Date.now();
-        filaProcessamento.enfileirar(() => processarNovosEmails());
       });
 
-      // 5. Iniciar watchdog e entrar em IDLE
+      // 5. Iniciar watchdog (salvaguarda) e entrar no loop IDLE
       iniciarWatchdog();
       await iniciarIdleComTimeout();
 
@@ -581,45 +584,100 @@ async function iniciarWorker() {
   }
 
   /**
-   * Iniciar IDLE com timeout seguro
-   * Se IDLE morrer ou timeout, lança erro para reconectar
+   * Loop IDLE com ciclos curtos (padrão ImapFlow oficial).
+   *
+   * Por que ciclos curtos:
+   * - O IDLE pode "morrer silenciosamente" — conexão TCP fica viva mas o
+   *   servidor para de enviar notificações 'exists'. Nessa situação, sem
+   *   intervenção, emails ficam parados na INBOX por até 25 min (até o
+   *   reconnect preventivo do RFC 2177).
+   * - Com ciclos de 60s, o sistema sai do IDLE explicitamente, chama
+   *   processarNovosEmails() (que faz search ativo) e volta. Mesmo se o
+   *   evento 'exists' tiver parado, a busca direta captura o email.
+   *
+   * Por que NÃO faz reconnect a cada ciclo:
+   * - Em vez de fechar e reabrir a conexão, usamos client.idle() pra entrar,
+   *   client.noop() pra forçar sair, e voltamos pro IDLE no mesmo client.
+   *   Sem race condition, sem sobrecarregar o servidor IMAP.
+   *
+   * Saída do loop:
+   * - Atingir 24 min totais (sai pra que conectarComRetry refaça connection
+   *   limpa, evitando keep-alive infinito da mesma sessão).
+   * - Exception não-relacionada a "Connection closed" (propaga pra reconectar).
+   * - "Connection closed" — sai pra reconnect via while loop principal.
    */
   async function iniciarIdleComTimeout() {
-    return new Promise((resolve, reject) => {
-      // Timeout de 25 min (seguro — IDLE timeout é 28 min)
-      const timeoutHandle = setTimeout(() => {
-        log.info('RFC 2177: Timeout preventivo de IDLE (25 min)');
-        if (client) {
-          // Defender contra client.close() retornando undefined ou lançando
-          try { client.close()?.catch?.(() => {}); } catch (_err) { /* ignora */ }
-        }
-        reject(new Error('IDLE timeout preventivo (RFC 2177)'));
-      }, 25 * 60 * 1000);
+    const TEMPO_LIMITE_TOTAL_MS = 24 * 60 * 1000; // 24 min
+    const TEMPO_IDLE_CYCLE_MS = 60 * 1000; // 60s por ciclo
+    const inicioTotal = Date.now();
 
-      try {
-        if (!client || !client.mailbox) {
-          reject(new Error('IMAP client não pronto para IDLE'));
-          return;
-        }
+    if (!client || !client.mailbox) {
+      throw new Error('IMAP client não pronto para IDLE');
+    }
 
-        log.info('Entrando em modo IDLE...');
-        ultimoHeartbeat = Date.now();
+    log.info('Entrando em loop IDLE (ciclos de 60s)...');
 
-        client.idle().then(() => {
-          clearTimeout(timeoutHandle);
-          resolve();
-        }).catch((err) => {
-          clearTimeout(timeoutHandle);
-          if (err.message !== 'Connection closed') {
-            log.error({ erro: err.message }, 'Erro durante IDLE');
-          }
-          reject(err);
-        });
-      } catch (err) {
-        clearTimeout(timeoutHandle);
-        reject(err);
+    while (true) {
+      if (!client || !client.mailbox) {
+        throw new Error('IMAP client desconectado durante loop IDLE');
       }
-    });
+
+      const elapsedTotal = Date.now() - inicioTotal;
+      if (elapsedTotal >= TEMPO_LIMITE_TOTAL_MS) {
+        log.info(
+          { elapsedMin: Math.round(elapsedTotal / 60000) },
+          'RFC 2177: tempo total de loop IDLE atingido — saindo pra reconnect preventivo'
+        );
+        return; // while loop principal vai reconectar limpo
+      }
+
+      ultimoHeartbeat = Date.now();
+
+      // Inicia IDLE (não await ainda — vai resolver quando algo terminar o IDLE)
+      const idlePromise = client.idle();
+
+      // Aguarda o ciclo de 60s
+      await new Promise((r) => setTimeout(r, TEMPO_IDLE_CYCLE_MS));
+
+      // Força o IDLE a terminar enviando NOOP — ImapFlow internamente
+      // envia DONE pro servidor antes do NOOP. idlePromise vai resolver.
+      try {
+        await client.noop();
+      } catch (err) {
+        // NOOP falhou — conexão pode estar quebrada
+        if (err.message === 'Connection closed' || err.message?.includes('Connection')) {
+          log.warn({ erro: err.message }, 'Conexão fechou durante NOOP, saindo do loop IDLE');
+          throw err;
+        }
+        log.error({ erro: err.message }, 'Erro inesperado no NOOP do ciclo IDLE');
+        // Continua mesmo com erro — vai tentar processar e re-IDLE
+      }
+
+      // Aguarda IDLE realmente terminar (evita estado intermediário)
+      try {
+        await idlePromise;
+      } catch (err) {
+        if (err.message === 'Connection closed') {
+          log.info('IDLE encerrado por conexão fechada — saindo pra reconnect');
+          throw err;
+        }
+        log.error({ erro: err.message }, 'Erro durante IDLE');
+        throw err;
+      }
+
+      // Ciclo IDLE terminou (timeout ou notificação) — processa emails novos
+      try {
+        await processarNovosEmails();
+      } catch (err) {
+        log.error(
+          { erro: err.message },
+          'Erro ao processar emails dentro do loop IDLE — continuando'
+        );
+        // Não sai do loop — segue tentando no próximo ciclo
+      }
+
+      // Loop volta ao topo e reinicia IDLE
+    }
   }
 
   /**
