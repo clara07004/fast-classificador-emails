@@ -134,6 +134,20 @@
 
 ---
 
+## PRÉ-ROLLOUT — Segurança obrigatória antes de escalar
+
+> Estes itens devem ser concluídos **antes** de ativar o sistema para múltiplos funcionários.
+> Com 12–15 funcionários, o risco de exposição de dados aumenta significativamente.
+
+| ID | Nome | Descrição | Prioridade | Horas | Dependências |
+|---|---|---|---|---|---|
+| T54 | S7 — Sanitizar logs PII | Remover subject, from e conteúdo de emails dos logs do PM2. Logar apenas UID, nível e metadados não sensíveis. Risco LGPD: pm2-out.log retém conteúdo de emails indefinidamente. | P1 | 2h | — |
+| T55 | S4 — Autenticação Convex (internal functions + HTTP gateway) | Converter mutations/queries sensíveis para `internalMutation`/`internalQuery`. Criar HTTP Action gateway que valida `Authorization: Bearer <token>`. Reescrever `src/convex/cliente.js` para usar fetch ao invés de ConvexClient WebSocket. Token armazenado como Convex env var + worker `.env`. Sem isso, qualquer pessoa com a URL do deployment pode ler/gravar dados de todos os funcionários. | P1 | 4h | T44 |
+
+**Subtotal Pré-Rollout:** 6h
+
+---
+
 ## FASE 3 — Rollout (Dia 6 — parte 2)
 
 | ID | Nome | Descrição | Prioridade | Horas | Dependências |

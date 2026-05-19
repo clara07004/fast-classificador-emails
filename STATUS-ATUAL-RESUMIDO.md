@@ -1,196 +1,135 @@
-# Status Atual — Resumido e Prático
+# Status Atual — classificador-emails-fast
 
-**Data:** 2026-05-07  
+**Atualizado em:** 2026-05-19  
 **Responsável:** Clara Barbosa  
-**Status geral:** MVP ~80% implementado, testando
+**Status geral:** MVP completo e validado em produção — servidor pausado por expiração do trial Jelastic
 
 ---
 
-## 📊 Em um parágrafo
+## Situação imediata
 
-Você já implementou 22 das 23 tarefas do MVP (Dia 1–2). O código está pronto, faltam apenas 2 bloqueadores simples para você testar: **criar as 6 pastas no Outlook** e **obter credenciais do funcionário piloto**. Depois disso, roda um teste E2E rápido (Dia 3), faz um piloto com emails reais para calibrar o prompt (Dia 4), e por fim implementa aprendizado individual com RAG + style card (Dia 5–6). Total: 6 dias de trabalho, esperado atingir MVP completo com ≥ 70% de acurácia.
-
----
-
-## ✅ O QUE JÁ ESTÁ PRONTO
-
-| Item | Feito? | Arquivo |
-|------|--------|---------|
-| Conexão IMAP IDLE | ✅ | `src/imap/worker.js` |
-| Normalizador de email | ✅ | `src/imap/envelope.js` |
-| Pré-classificador (whitelist/blacklist) | ✅ | `src/imap/pre-classificador.js` |
-| Chamada Claude API | ✅ | `src/imap/classificador.js` |
-| Geração de rascunho | ✅ | (função em classificador.js) |
-| IMAP APPEND de rascunho | ✅ | (função em worker.js) |
-| Movimentação para pastas Fast/* | ✅ | `src/imap/pastas.js` |
-| Listener de MOVE (feedback) | ✅ | (função em worker.js) |
-| Registro em Convex | ✅ | `src/convex/cliente.js` |
-| Health check | ✅ | (função em worker.js) |
+O servidor Jelastic (SaveInCloud) pausou automaticamente porque o período gratuito encerrou. O worker está parado. Para retomar, é só converter a conta em https://app.paas.saveincloud.net.br/?action=convert e clicar em "Iniciar". Siga o arquivo **PENDENCIAS-POS-JELASTIC.md** na raiz do projeto.
 
 ---
 
-## ❌ BLOQUEADORES ATUAIS
+## O que está pronto (MVP completo)
 
-| Bloqueador | O que fazer | Tempo |
+| Componente | Status | Observação |
 |---|---|---|
-| **Pastas não existem** | Criar 6 pastas no Outlook (ou implementar auto-criação) | 30 min |
-| **Sem credenciais** | Pedir ao TI: email + senha de app CSC Empresarial | 1 dia |
-
-**Sem resolver estes 2, não consegue testar nada.**
-
----
-
-## 🗓️ PRÓXIMOS 6 DIAS
-
-| Dia | Foco | O que fazer | Horas | Guia |
-|-----|------|-----------|-------|------|
-| **3** | Teste E2E | Criar pastas + configurar credenciais + teste de pipeline | 4h | [GUIA-DIA-3.md](guias%20diarios/GUIA-DIA-3.md) |
-| **4** | Piloto real | Rodar 24–48h com emails reais, ajustar prompt | 6h | [GUIA-DIA-4.md](guias%20diarios/GUIA-DIA-4.md) |
-| **5** | Aprendizado | RAG + style card | 8h | [GUIA-DIA-5.md](guias%20diarios/GUIA-DIA-5.md) |
-| **6** | Dashboard + Rollout | Dashboard, reflexão mensal, prep para múltiplos funcionários | 8h | [GUIA-DIA-6.md](guias%20diarios/GUIA-DIA-6.md) |
-
-**Total esperado:** 26 horas de trabalho (≈ 4–5 dias de tempo cronológico, considerando que Dia 4 roda em paralelo)
+| Conexão IMAP IDLE | ✅ | Refatorado em 14/05 — captura em <70s mesmo se IDLE para |
+| Normalizador de email | ✅ | |
+| Pré-classificador determinístico | ✅ | Blacklist, whitelist, padrões urgência |
+| Classificação Claude API | ✅ | Fallback para Nível 3 se API falhar |
+| Defesa contra prompt injection | ✅ | Adicionada em 19/05 — conteúdo isolado em `<email_content>` |
+| Geração de rascunho | ✅ | Apenas níveis 1–4 |
+| IMAP APPEND de rascunho | ✅ | Aparece na pasta Rascunhos do funcionário |
+| Movimentação para pastas Fast/* | ✅ | Bug de race condition corrigido em 11/05 |
+| Listener de MOVE (feedback loop) | ✅ | |
+| Registro em Convex | ✅ | Production: chatty-panda-261 |
+| Worker no servidor | ✅ | PM2 com auto-restart, crontab no boot |
+| Endpoint `/health` no Convex | ✅ | Criado em 19/05 — aguarda deploy |
 
 ---
 
-## 🎯 TAREFAS IMEDIATAS (Dia 3)
+## Convex Production
 
-### Tarefa 1: Criar pastas IMAP — 30 min
-```
-Outlook → Criar 6 pastas:
-  ✓ Fast/Urgente
-  ✓ Fast/Alta-Prioridade
-  ✓ Fast/Normal
-  ✓ Fast/Baixa
-  ✓ Fast/Irrelevante
-  ✓ Fast/Pendente-Classificacao
-```
-
-### Tarefa 2: Configurar credenciais — 15 min
-```
-.env.local:
-  IMAP_USER=seu-email@fastdrywall.com.br
-  IMAP_PASS=sua-senha-app-csc
-  (Demais campos já estão configurados)
-```
-
-### Tarefa 3: Teste E2E — 2–3h
-```
-1. Rodar worker: npm start
-2. Enviar email de teste para si mesmo
-3. Verificar:
-   ✓ Email foi detectado
-   ✓ Foi classificado corretamente
-   ✓ Rascunho foi gerado
-   ✓ Foi movido para pasta correta
-   ✓ MOVE para outra pasta foi detectado
-   ✓ Tudo foi registrado no Convex
-```
+| Item | Valor |
+|---|---|
+| Deployment | `chatty-panda-261` |
+| URL | `https://chatty-panda-261.convex.cloud` |
+| Funcionário piloto ID | `jn7b1dbqkbnj03kg7wkw9gsgwn86n7k0` |
+| Backup | Manual feito em 19/05 (expira em 7 dias) — backup automático requer plano PRO |
 
 ---
 
-## 📈 MÉTRICAS-CHAVE PARA ACOMPANHAR
+## O que foi feito na sessão de 19/05
 
-| Métrica | Esperado | Validação |
-|---------|----------|-----------|
-| Taxa de aceitação | ≥ 70% | Ao final do Dia 4 |
-| Tempo até leitura (Urgentes) | < 5 min | Monitorar Dia 4+ |
-| Qualidade de rascunho | > 50% aceitos sem edição | Feedback Dia 4 |
-| Taxa de fallback | < 5% | Ao final do Dia 4 |
-| Estabilidade IMAP | 100% uptime | Monitorar Dia 3–6 |
+**S5 — Backup Convex:** backup manual executado. Backup automático marcado para avaliar no plano PRO.
+
+**S2 — Monitoramento externo:**
+- Criado `convex/health.ts` — endpoint `GET /health` retorna 200 (worker ativo) ou 503 (inativo)
+- Criado `convex/http.ts` — registra a rota no Convex
+- Criado `scripts/healthcheck-externo.py` — script Python sem dependências para check manual
+- **Pendente:** rodar `npx convex deploy` quando servidor voltar + configurar UptimeRobot
+
+**S3 — Prompt injection:** `construirPrompt` em `src/imap/classificador.js` reescrito — email isolado em `<email_content>`, campos sanitizados, instrução explícita de dado não confiável.
+
+**S4 — Convex sem auth:** decidido que a solução correta (internal functions + HTTP gateway com token) deve ser implementada **antes do rollout**, não no MVP. Item adicionado ao backlog como **T55 (pré-rollout obrigatório)**.
 
 ---
 
-## 🛠️ FERRAMENTAS / ACESSO NECESSÁRIO
+## Pendências imediatas (quando Jelastic voltar)
 
-| Ferramenta | O que é | Onde |
+Ver **PENDENCIAS-POS-JELASTIC.md** para checklist completo. Em resumo:
+
+1. Iniciar ambiente no painel SaveInCloud
+2. Verificar PM2: `pm2 list && pm2 logs classificador-email --lines 30 --nostream`
+3. Rodar `npx convex deploy` (publica o endpoint `/health`)
+4. Setar `PILOTO_FUNCIONARIO_ID` nas variáveis de ambiente do Convex Production
+5. Criar monitor no UptimeRobot apontando para `https://chatty-panda-261.convex.cloud/health`
+
+---
+
+## Pendências de segurança (antes do rollout)
+
+| ID | Item | Urgência |
 |---|---|---|
-| **Convex** | Banco de dados | https://dashboard.convex.dev |
-| **Claude API** | IA para classificação | Já configurado |
-| **Voyage AI** | Embeddings (Dia 5) | Criar conta em voyageai.com |
-| **CSC Empresarial** | IMAP/SMTP | mail.cscempresarial.com.br:993 |
-| **PM2** | Gestor de processos | Rodando no servidor |
-| **SaveInCloud** | Servidor (VPS) | Acessar via SSH |
+| S4 | Autenticação Convex (internal functions + HTTP gateway) | Obrigatório antes de escalar para 12–15 funcionários |
+| S7 | Logs com PII — subject e conteúdo de emails em pm2-out.log indefinidamente | Alta (LGPD) |
 
 ---
 
-## 📋 CHECKLIST ANTES DE COMEÇAR DIA 3
+## O que ainda falta para Fase 2 (aprendizado individual)
 
-- [ ] Leu GUIA-DIA-3.md por completo
-- [ ] Tem acesso ao Outlook (web ou desktop)
-- [ ] Tem acesso ao .env.local para atualizar credenciais
-- [ ] Tem acesso ao servidor SaveInCloud (SSH) para ver logs
-- [ ] Tem acesso ao dashboard Convex
-- [ ] PM2 está rodando no servidor (pm2 status mostra worker online)
-
----
-
-## ⚠️ RISCOS PRINCIPAIS
-
-| Risco | Probabilidade | Impacto | Mitigação |
-|------|---|---|---|
-| Pasta não foi criada corretamente | Média | Bloqueador | Instruções no Dia 3 para criar manualmente + auto-criação |
-| Credenciais expiram | Baixa | Bloqueador | Usar password manager, rotar regularmente |
-| LGPD bloqueia produção | Média | Não bloqueia MVP, bloqueia produção | Solicitar parecer jurídico em paralelo |
-| Taxa de aceitação < 70% | Média | Requer mais ajustes | Planejar 1–2 ciclos extras de calibração |
-| Voyage AI rate limit | Baixa | Atrasa embeddings | Usar tier pago ou fazer backfill em fora de pico |
+| Item | Status |
+|---|---|
+| RAG de correções (Voyage AI + embeddings) | Não iniciado |
+| Style card por funcionário | Não iniciado |
+| Rotina de reflexão mensal | Não iniciado |
+| Integração Convex em movimento-monitor.js, learning-block.js, weekly-feedback-report.js | 3 TODOs para descomentar (ver PROXIMO_PASSO_AGORA.md) |
 
 ---
 
-## 🎓 DOCUMENTAÇÃO PRINCIPAL
+## O que ainda falta para Fase 3 (rollout 12–15 funcionários)
 
-1. **PROJECT_BRIEF.md** — Contexto e objetivo geral
-2. **PROCESS_MAP.md** — Fluxo antes vs depois
-3. **SOLUTION_DESIGN.md** — Arquitetura técnica completa
-4. **BACKLOG_PROJETO.md** — Todas as 46 tarefas (você está em ~50%)
-5. **GUIAS DIÁRIOS** — Instruções passo-a-passo (Dia 3–6)
+| Item | Status |
+|---|---|
+| S4 — Autenticação Convex | Não iniciado |
+| Parametrizar worker para múltiplos funcionários | Não iniciado |
+| Script de onboarding de novo funcionário | Não iniciado |
+| Documentação de operação / runbook | Não iniciado |
 
 ---
 
-## 💬 CONTATOS / BLOQUEADORES EXTERNOS
+## Histórico de bugs críticos resolvidos
 
-| Bloqueador | Contatar | Urgência |
+| Data | Bug | Solução |
 |---|---|---|
-| Credenciais CSC Empresarial | TI | 🔴 HOJE |
-| Parecer LGPD | Jurídico | 🟡 Próxima semana |
-| Política retenção dados Convex | TI + Jurídico | 🟡 Próxima semana |
-| DPA com Anthropic | Jurídico | 🟡 Se exigido |
+| 11/05 | Race condition IDLE/MOVE — emails não saíam da INBOX | `getMailboxLock` + await fila. Commit 10eb5ca |
+| 14/05 | IDLE silencioso — worker parava de capturar emails sem erro | Refatoração pro padrão ImapFlow oficial. Commit 4a44918 |
 
 ---
 
-## 🚀 COMO COMEÇAR
+## Infraestrutura
 
-```
-1. Abra guias diarios/GUIA-DIA-3.md
-2. Siga as 4 tarefas em ordem
-3. Quando terminar, abra GUIA-DIA-4.md
-4. Repita até Dia 6
-5. Pronto para rollout!
-```
-
-**Tempo total esperado:** 26 horas de trabalho prático  
-**Tempo cronológico:** 2 semanas (considerando dias 4–5 rodam em paralelo)  
-**Data esperada de conclusão:** ~2026-05-20
+| Componente | Detalhe |
+|---|---|
+| Servidor | SaveInCloud Jelastic — `node265627-env-0048116`, usuário `nodejs` |
+| Projeto no servidor | `/home/jelastic/fast-classificador-emails/` |
+| Processo PM2 | `classificador-email` (singular) |
+| Node.js | v25.9.0 via nvm |
+| Auto-start | `@reboot` no crontab do usuário nodejs |
+| Pasta órfã (pode deletar) | `/home/jelastic/classificador-email/` (singular, sem uso) |
 
 ---
 
-## ✨ Sucesso = quando...
+## Documentos de referência
 
-- ✅ Email recebido → classificado corretamente → pasta correta → rascunho gerado
-- ✅ Feedback (MOVE) → registrado em Convex
-- ✅ Taxa de aceitação ≥ 70% validada em condições reais
-- ✅ Dashboard mostrando métricas
-- ✅ Sistema rodando 24h sem falhas
-- ✅ Pronto para expandir para 2–3 mais funcionários
-
-**Quando tudo estiver ✅ acima, você pode comemorar e começar a pensar em rollout gradual.**
-
----
-
-## 📞 Próximo passo
-
-👉 **Leia GUIA-DIA-3.md** e comece pelas tarefas imediatas (pastas + credenciais).
-
-Se tiver dúvida em qualquer passo, os guias têm seção de **Troubleshooting** com soluções.
-
-Boa sorte! 🚀
+| Documento | Para quê |
+|---|---|
+| `PENDENCIAS-POS-JELASTIC.md` | Checklist ao reativar o servidor |
+| `BACKLOG_PROJETO.md` | Todas as tarefas com status e estimativas |
+| `PROXIMO_PASSO_AGORA.md` | Detalhe das 3 integrações Convex pendentes (Fase 2) |
+| `ROLLOUT_NOVO_FUNCIONARIO.md` | Guia para onboarding de novo funcionário |
+| `PRE-MORTEM.md` | Análise de riscos e modos de falha documentados |
+| `DEPLOY-SAVEINCLOUD.md` | Guia de deploy no servidor |

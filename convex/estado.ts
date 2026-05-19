@@ -78,6 +78,7 @@ export const obterEstado = query({
         ultimoUidProcessado: 0,
         ultimoTimestampProcessamento: Date.now(),
         statusConexao: "desconectado",
+        ultimaAtualizacao: 0,
       };
     }
 
@@ -85,6 +86,7 @@ export const obterEstado = query({
       ultimoUidProcessado: estado.ultimoUidProcessado,
       ultimoTimestampProcessamento: estado.ultimoTimestampProcessamento,
       statusConexao: estado.statusConexao,
+      ultimaAtualizacao: estado.ultimaAtualizacao,
     };
   },
 });
