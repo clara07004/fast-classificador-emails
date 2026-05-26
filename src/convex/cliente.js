@@ -16,6 +16,14 @@ const TIMEOUT_MS = 60000; // 60s — Convex pode ser muito lento, especialmente 
 let clienteGlobal = null;
 
 /**
+ * Obter instância raw do ConvexClient.
+ * Usado por módulos que chamam .query()/.mutation() diretamente (ex: MovimentoMonitor).
+ */
+export function getConvexClient() {
+  return clienteGlobal;
+}
+
+/**
  * Fazer chamada ao Convex com retry e timeout
  *
  * @param {function} funcaoApi - Referência da API (ex: api.estado.obterEstado)

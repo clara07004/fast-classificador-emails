@@ -256,6 +256,26 @@ export const registrarMovimento = mutation({
 });
 
 /**
+ * Query: Buscar movimentos recentes por funcionário (para LearningBlock / RAG Fase 2)
+ */
+export const buscarMovimentosPorFuncionario = query({
+  args: {
+    funcionarioId: v.id("funcionarios"),
+    limite: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limite = args.limite ?? 20;
+    return await ctx.db
+      .query("email_movements")
+      .withIndex("by_funcionario", (q) =>
+        q.eq("funcionarioId", args.funcionarioId)
+      )
+      .order("desc")
+      .take(limite);
+  },
+});
+
+/**
  * Query: Buscar movimentos recentes (para relatório semanal)
  */
 export const buscarMovimentosPorPeriodo = query({

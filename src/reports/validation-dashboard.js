@@ -8,6 +8,7 @@
  */
 
 import { getLogger } from '../logger.js';
+import { api } from '../../convex/_generated/api.js';
 
 const log = getLogger('validation-dashboard');
 
@@ -26,14 +27,69 @@ class ValidationDashboard {
         return this.metricasPlaceholder();
       }
 
-      // TODO: Buscar movimentos quando Convex estiver integrado
-      // const movimentos = await this.convex.query(
-      //   api.emails.buscarMovimentosPorPeriodo,
-      //   { funcionarioId, dataInicio, dataFim }
-      // );
+      const agora = Date.now();
+      const dataInicio = agora - ultimosDias * 24 * 60 * 60 * 1000;
 
-      log.debug({ funcionarioId }, 'Buscando métricas (placeholder)');
-      return this.metricasPlaceholder();
+      // Buscar movimentos (feedback do usuário) e emails processados no período
+      const [movimentos, emails] = await Promise.all([
+        this.convex.query(api.emails.buscarMovimentosPorPeriodo, {
+          funcionarioId,
+          dataInicio,
+          dataFim: agora,
+        }),
+        this.convex.query(api.emails.buscarEmailsPorFuncionario, {
+          funcionarioId,
+          ultimosDias,
+          limite: 500,
+        }),
+      ]);
+
+      log.debug({ funcionarioId, movimentos: movimentos.length, emails: emails.length }, 'Métricas buscadas');
+
+      // Emails com feedback (movimentos registrados)
+      const uidsCorrigidos = new Set(movimentos.filter(m => !m.is_correct).map(m => String(m.uid)));
+      const totalEmails = emails.length;
+      const totalCorrecoes = uidsCorrigidos.size;
+      const totalAcertos = totalEmails - totalCorrecoes;
+      const taxaAcerto = totalEmails > 0 ? Math.round((totalAcertos / totalEmails) * 100) : 0;
+
+      // Métricas por nível
+      const porNivel = { P1: {}, P2: {}, P3: {}, P4: {}, P5: {} };
+      for (const nivel of Object.keys(porNivel)) {
+        const n = parseInt(nivel.replace('P', ''));
+        const emailsNivel = emails.filter(e => e.nivelClassificado === n);
+        const corrigidasNivel = movimentos.filter(m => m.classified_as === nivel && !m.is_correct);
+        const total = emailsNivel.length;
+        const acertos = total - corrigidasNivel.length;
+        porNivel[nivel] = {
+          total,
+          acertos: Math.max(0, acertos),
+          taxa: total > 0 ? Math.round((Math.max(0, acertos) / total) * 100) : 0,
+        };
+      }
+
+      // Tempo médio de feedback
+      const temposFeedback = movimentos
+        .filter(m => m.feedback_delay_minutes != null)
+        .map(m => m.feedback_delay_minutes);
+      const tempoMedioFeedback = temposFeedback.length > 0
+        ? Math.round(temposFeedback.reduce((a, b) => a + b, 0) / temposFeedback.length)
+        : 0;
+
+      const falsoPositivos = movimentos.filter(m => !m.is_correct && parseInt(m.classified_as.replace('P', '')) < parseInt((m.expected_priority || 'P3').replace('P', ''))).length;
+      const falsoNegativos = movimentos.filter(m => !m.is_correct && parseInt(m.classified_as.replace('P', '')) > parseInt((m.expected_priority || 'P3').replace('P', ''))).length;
+
+      return {
+        periodo: { inicio: new Date(dataInicio), fim: new Date(agora), dias: ultimosDias },
+        geral: { totalEmails, totalAcertos, totalErros: totalCorrecoes, taxaAcerto },
+        porNivel,
+        tempoMedioFeedback,
+        tempoMinimo: temposFeedback.length > 0 ? Math.min(...temposFeedback) : 0,
+        tempoMaximo: temposFeedback.length > 0 ? Math.max(...temposFeedback) : 0,
+        falsoPositivos,
+        falsoNegativos,
+        tendencia: totalEmails >= 10 ? (taxaAcerto >= 87 ? 'positiva' : 'negativa') : 'sem dados',
+      };
     } catch (err) {
       log.error({ erro: err.message }, 'Erro ao calcular métricas');
       return this.metricasPlaceholder();

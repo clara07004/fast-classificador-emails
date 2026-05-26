@@ -1,5 +1,5 @@
 import { ImapFlow } from 'imapflow';
-import { getLogger } from '../logger.js';
+import { getLogger, mascarEmail } from '../logger.js';
 import { runEnvelope } from '../envelope.js';
 import {
   obterEstadoProcessamento,
@@ -7,14 +7,37 @@ import {
   atualizarStatusConexao,
   salvarClassificacao,
   buscarEmailsProcessados,
+  getConvexClient,
 } from '../convex/cliente.js';
 import { garantirPastasFast, moverComFallback, obterPastaParaNivel } from './pastas.js';
 import { classificarEmail } from './classificador.js';
 import { analisarContextoConversa } from './thread-context.js';
+import { MovimentoMonitor } from './movimento-monitor.js';
 
 const log = getLogger('imap');
 
 let client = null;
+
+// MovimentoMonitor usa conexão IMAP separada para não interromper o IDLE do worker
+let movimentoMonitor = null;
+let monitorClient = null;
+
+/**
+ * Cria um cliente ImapFlow configurado com as credenciais do ambiente.
+ * Usado tanto pelo worker principal quanto pelo MovimentoMonitor.
+ */
+function criarClienteImap() {
+  return new ImapFlow({
+    host: process.env.IMAP_HOST,
+    port: parseInt(process.env.IMAP_PORT, 10),
+    secure: true,
+    auth: {
+      user: process.env.IMAP_USER,
+      pass: process.env.IMAP_PASSWORD,
+    },
+    logger: false,
+  });
+}
 
 /**
  * FilaProcessamento — Serializa processamento de emails
@@ -255,7 +278,7 @@ async function processarEmailIndividual(client, uid, funcionarioId, env) {
       classificacao = await classificarEmail(email, { id: funcionarioId }, contextoThread);
     } catch (err) {
       log.error(
-        { uid, from: email.from, err: err.message },
+        { uid, remetenteDominio: mascarEmail(email.from), err: err.message },
         'Erro ao classificar — usando fallback Nível 3'
       );
       classificacao = {
@@ -271,7 +294,7 @@ async function processarEmailIndividual(client, uid, funcionarioId, env) {
 
     if (!resultadoMover.sucesso && resultadoMover.motivo === 'fallback_inbox') {
       log.warn(
-        { uid, from: email.from, nivel: classificacao.nivel },
+        { uid, remetenteDominio: mascarEmail(email.from), nivel: classificacao.nivel },
         'Email ficou em INBOX por falha de movimentação'
       );
     }
@@ -299,7 +322,7 @@ async function processarEmailIndividual(client, uid, funcionarioId, env) {
       );
     } catch (err) {
       log.error(
-        { uid, from: email.from, err: err.message },
+        { uid, remetenteDominio: mascarEmail(email.from), err: err.message },
         'Erro ao salvar em Convex (email já movido)'
       );
       // Não falha aqui — email já foi movido, salvamento é best-effort
@@ -308,8 +331,7 @@ async function processarEmailIndividual(client, uid, funcionarioId, env) {
     log.info(
       {
         uid,
-        from: email.from,
-        subject: email.subject,
+        remetenteDominio: mascarEmail(email.from),
         nivel: classificacao.nivel,
         metodo: classificacao.metodo,
         pastaUsada: resultadoMover.pastaUsada,
@@ -477,6 +499,14 @@ async function iniciarWorker() {
       );
 
       // Fechar conexão anterior se existir
+      if (movimentoMonitor) {
+        movimentoMonitor.stop();
+        movimentoMonitor = null;
+      }
+      if (monitorClient) {
+        try { monitorClient.logout(); } catch (_) {}
+        monitorClient = null;
+      }
       if (client) {
         try {
           await client.logout();
@@ -487,16 +517,7 @@ async function iniciarWorker() {
       }
 
       // Criar nova conexão
-      client = new ImapFlow({
-        host: process.env.IMAP_HOST,
-        port: parseInt(process.env.IMAP_PORT, 10),
-        secure: true,
-        auth: {
-          user: process.env.IMAP_USER,
-          pass: process.env.IMAP_PASSWORD,
-        },
-        logger: false,
-      });
+      client = criarClienteImap();
 
       // Conectar
       await client.connect();
@@ -555,7 +576,23 @@ async function iniciarWorker() {
         ultimoHeartbeat = Date.now();
       });
 
-      // 5. Iniciar watchdog (salvaguarda) e entrar no loop IDLE
+      // 5. Iniciar MovimentoMonitor com conexão IMAP própria (não interfere no IDLE)
+      try {
+        monitorClient = criarClienteImap();
+        await monitorClient.connect();
+        movimentoMonitor = new MovimentoMonitor(monitorClient, getConvexClient());
+        await movimentoMonitor.start();
+        log.info('✓ MovimentoMonitor iniciado (feedback loop ativo)');
+      } catch (err) {
+        log.warn({ erro: err.message }, 'MovimentoMonitor não pôde iniciar — feedback loop desativado');
+        movimentoMonitor = null;
+        if (monitorClient) {
+          try { monitorClient.logout(); } catch (_) {}
+          monitorClient = null;
+        }
+      }
+
+      // 6. Iniciar watchdog (salvaguarda) e entrar no loop IDLE
       iniciarWatchdog();
       await iniciarIdleComTimeout();
 
@@ -692,6 +729,47 @@ async function iniciarWorker() {
       // Se chegou aqui, está conectado e em IDLE (que é bloqueante até disconnect)
       // IDLE saiu (timeout ou disconnect), volta ao início para reconectar
     } catch (err) {
+      log.error(
+        { erro: err.message },
+        'Worker falhou, tentando reconectar em 10s...'
+      );
+      tentativaReconexao = 0; // Reset para próxima bateria de tentativas
+      await new Promise(r => setTimeout(r, 10000));
+    }
+  }
+}
+
+export async function startImapWorker() {
+  const FUNCIONARIO_ID = process.env.PILOTO_FUNCIONARIO_ID;
+  if (!FUNCIONARIO_ID) {
+    log.error('PILOTO_FUNCIONARIO_ID não configurada em .env');
+    process.exit(1);
+  }
+
+  log.info({ funcionarioId: FUNCIONARIO_ID }, 'Iniciando IMAP Worker...');
+  await iniciarWorker();
+} (err) {
+      log.error(
+        { erro: err.message },
+        'Worker falhou, tentando reconectar em 10s...'
+      );
+      tentativaReconexao = 0; // Reset para próxima bateria de tentativas
+      await new Promise(r => setTimeout(r, 10000));
+    }
+  }
+}
+
+export async function startImapWorker() {
+  const FUNCIONARIO_ID = process.env.PILOTO_FUNCIONARIO_ID;
+  if (!FUNCIONARIO_ID) {
+    log.error('PILOTO_FUNCIONARIO_ID não configurada em .env');
+    process.exit(1);
+  }
+
+  log.info({ funcionarioId: FUNCIONARIO_ID }, 'Iniciando IMAP Worker...');
+  await iniciarWorker();
+}
+ (err) {
       log.error(
         { erro: err.message },
         'Worker falhou, tentando reconectar em 10s...'

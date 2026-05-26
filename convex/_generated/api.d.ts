@@ -10,6 +10,8 @@
 
 import type * as emails from "../emails.js";
 import type * as estado from "../estado.js";
+import type * as health from "../health.js";
+import type * as http from "../http.js";
 import type * as seeds from "../seeds.js";
 
 import type {
@@ -21,6 +23,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   emails: typeof emails;
   estado: typeof estado;
+  health: typeof health;
+  http: typeof http;
   seeds: typeof seeds;
 }>;
 
