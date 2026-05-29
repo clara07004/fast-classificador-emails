@@ -188,6 +188,64 @@ export const buscarEmailPorId = query({
 });
 
 /**
+ * Query: Buscar email por Message-ID original
+ *
+ * Usado pelo SentMonitor para cruzar In-Reply-To do email enviado
+ * com o messageId do email original processado.
+ */
+export const buscarEmailPorMessageId = query({
+  args: {
+    messageId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("emails_processados")
+      .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
+      .first();
+  },
+});
+
+/**
+ * Mutation: Registrar diff rascunho × enviado (T39)
+ *
+ * Salva a diferença entre o rascunho gerado por Claude e o email
+ * que o funcionário realmente enviou. Alimenta o style card na Fase 2.
+ *
+ * Idempotente: ignora silenciosamente se messageIdEnviado já foi registrado.
+ */
+export const registrarDiffRascunho = mutation({
+  args: {
+    funcionarioId: v.id("funcionarios"),
+    emailOriginalId: v.id("emails_processados"),
+    rascunhoGerado: v.string(),
+    textoEnviado: v.string(),
+    similaridadePercent: v.number(),
+    inReplyTo: v.string(),
+    messageIdEnviado: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Idempotência: evitar registrar o mesmo email enviado duas vezes
+    const jaExiste = await ctx.db
+      .query("draft_diffs")
+      .withIndex("by_message_enviado", (q) =>
+        q.eq("messageIdEnviado", args.messageIdEnviado)
+      )
+      .first();
+
+    if (jaExiste) {
+      return { sucesso: true, diffId: jaExiste._id, duplicata: true };
+    }
+
+    const diffId = await ctx.db.insert("draft_diffs", {
+      ...args,
+      timestamp: Date.now(),
+    });
+
+    return { sucesso: true, diffId, duplicata: false };
+  },
+});
+
+/**
  * Mutation: Registrar movimento de email (Feedback Loop)
  *
  * Detecta quando usuário move um email pra pasta diferente,

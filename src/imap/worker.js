@@ -13,6 +13,9 @@ import { garantirPastasFast, moverComFallback, obterPastaParaNivel } from './pas
 import { classificarEmail } from './classificador.js';
 import { analisarContextoConversa } from './thread-context.js';
 import { MovimentoMonitor } from './movimento-monitor.js';
+import { gerarRascunho } from '../drafts/draft-generator.js';
+import { salvarRascunhoIMAP } from '../drafts/draft-saver.js';
+import { SentMonitor } from '../drafts/sent-monitor.js';
 
 const log = getLogger('imap');
 
@@ -21,6 +24,8 @@ let client = null;
 // MovimentoMonitor usa conexão IMAP separada para não interromper o IDLE do worker
 let movimentoMonitor = null;
 let monitorClient = null;
+let sentMonitor = null;
+let sentMonitorClient = null; // Conexão IMAP dedicada ao SentMonitor
 
 /**
  * Cria um cliente ImapFlow configurado com as credenciais do ambiente.
@@ -299,7 +304,45 @@ async function processarEmailIndividual(client, uid, funcionarioId, env) {
       );
     }
 
-    // 7. Salvar em Convex
+    // 7. Gerar rascunho de resposta (níveis 1–4, best-effort)
+    let rascunhoTexto = undefined;
+    if (classificacao.nivel <= 4) {
+      try {
+        const resultadoRascunho = await gerarRascunho(email, classificacao.nivel, {
+          funcionarioId,
+        });
+
+        if (resultadoRascunho.sucesso && resultadoRascunho.rascunho) {
+          rascunhoTexto = resultadoRascunho.rascunho;
+
+          // Salvar rascunho na caixa IMAP do funcionário (usando conexão do monitorClient)
+          const imapParaRascunho = monitorClient || client;
+          if (imapParaRascunho) {
+            const emailFuncionario = process.env.IMAP_USER;
+            const resultadoSalvar = await salvarRascunhoIMAP(
+              imapParaRascunho,
+              email,
+              rascunhoTexto,
+              emailFuncionario
+            );
+            if (!resultadoSalvar.sucesso) {
+              log.warn(
+                { uid, erro: resultadoSalvar.erro },
+                'Rascunho gerado mas não salvo no IMAP'
+              );
+            }
+          }
+        }
+      } catch (err) {
+        // Rascunho é best-effort — não bloqueia o processamento
+        log.warn(
+          { uid, err: err.message },
+          'Falha na geração de rascunho — email processado normalmente'
+        );
+      }
+    }
+
+    // 8. Salvar em Convex
     try {
       await salvarClassificacao(
         funcionarioId,
@@ -318,6 +361,7 @@ async function processarEmailIndividual(client, uid, funcionarioId, env) {
           metodo: classificacao.metodo,
           pastaUsada: resultadoMover.pastaUsada,
           contextoThread: contextoThread ? 'sim' : 'nao',
+          rascunho: rascunhoTexto,
         }
       );
     } catch (err) {
@@ -335,6 +379,7 @@ async function processarEmailIndividual(client, uid, funcionarioId, env) {
         nivel: classificacao.nivel,
         metodo: classificacao.metodo,
         pastaUsada: resultadoMover.pastaUsada,
+        rascunhoGerado: !!rascunhoTexto,
       },
       'Email processado com sucesso'
     );
@@ -499,6 +544,14 @@ async function iniciarWorker() {
       );
 
       // Fechar conexão anterior se existir
+      if (sentMonitor) {
+        sentMonitor.stop();
+        sentMonitor = null;
+      }
+      if (sentMonitorClient) {
+        try { sentMonitorClient.logout(); } catch (_) {}
+        sentMonitorClient = null;
+      }
       if (movimentoMonitor) {
         movimentoMonitor.stop();
         movimentoMonitor = null;
@@ -583,6 +636,23 @@ async function iniciarWorker() {
         movimentoMonitor = new MovimentoMonitor(monitorClient, getConvexClient());
         await movimentoMonitor.start();
         log.info('✓ MovimentoMonitor iniciado (feedback loop ativo)');
+
+      // 5b. Iniciar SentMonitor com conexão IMAP própria (evita conflito de mailboxOpen)
+      try {
+        const funcionarioId = process.env.PILOTO_FUNCIONARIO_ID;
+        sentMonitorClient = criarClienteImap();
+        await sentMonitorClient.connect();
+        sentMonitor = new SentMonitor(sentMonitorClient, getConvexClient(), funcionarioId);
+        await sentMonitor.start();
+        log.info('✓ SentMonitor iniciado (captura de diff rascunho×enviado ativa)');
+      } catch (err) {
+        log.warn({ erro: err.message }, 'SentMonitor não pôde iniciar — diff desativado');
+        sentMonitor = null;
+        if (sentMonitorClient) {
+          try { sentMonitorClient.logout(); } catch (_) {}
+          sentMonitorClient = null;
+        }
+      }
       } catch (err) {
         log.warn({ erro: err.message }, 'MovimentoMonitor não pôde iniciar — feedback loop desativado');
         movimentoMonitor = null;
@@ -748,45 +818,4 @@ export async function startImapWorker() {
 
   log.info({ funcionarioId: FUNCIONARIO_ID }, 'Iniciando IMAP Worker...');
   await iniciarWorker();
-} (err) {
-      log.error(
-        { erro: err.message },
-        'Worker falhou, tentando reconectar em 10s...'
-      );
-      tentativaReconexao = 0; // Reset para próxima bateria de tentativas
-      await new Promise(r => setTimeout(r, 10000));
-    }
-  }
-}
-
-export async function startImapWorker() {
-  const FUNCIONARIO_ID = process.env.PILOTO_FUNCIONARIO_ID;
-  if (!FUNCIONARIO_ID) {
-    log.error('PILOTO_FUNCIONARIO_ID não configurada em .env');
-    process.exit(1);
-  }
-
-  log.info({ funcionarioId: FUNCIONARIO_ID }, 'Iniciando IMAP Worker...');
-  await iniciarWorker();
-}
- (err) {
-      log.error(
-        { erro: err.message },
-        'Worker falhou, tentando reconectar em 10s...'
-      );
-      tentativaReconexao = 0; // Reset para próxima bateria de tentativas
-      await new Promise(r => setTimeout(r, 10000));
-    }
-  }
-}
-
-export async function startImapWorker() {
-  const FUNCIONARIO_ID = process.env.PILOTO_FUNCIONARIO_ID;
-  if (!FUNCIONARIO_ID) {
-    log.error('PILOTO_FUNCIONARIO_ID não configurada em .env');
-    process.exit(1);
-  }
-
-  log.info({ funcionarioId: FUNCIONARIO_ID }, 'Iniciando IMAP Worker...');
-  await iniciarWorker();
-}
+} 

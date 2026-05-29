@@ -114,26 +114,21 @@ export default defineSchema({
   })
     .index("by_funcionario", ["funcionarioId"]),
 
-  email_movements: defineTable({
+  // Diff entre rascunho gerado e email realmente enviado pelo funcionário.
+  // Alimenta o style card na Fase 2 — aprende como cada pessoa edita os rascunhos.
+  draft_diffs: defineTable({
     funcionarioId: v.id("funcionarios"),
-    uid: v.number(),
-    subject: v.string(),
-    from: v.string(),
-    received_at: v.number(),
-    classified_as: v.string(), // P1-P5
-    confidence: v.optional(v.number()),
-    system_folder: v.string(), // Onde sistema moveu (ex: INBOX.Fast-Urgente)
-    classification_timestamp: v.number(),
-    user_moved_to: v.string(), // Onde usuário moveu
-    feedback_timestamp: v.number(),
-    feedback_delay_minutes: v.number(), // Tempo entre classificação e movimento
-    is_correct: v.boolean(), // Sistema acertou?
-    expected_priority: v.optional(v.string()), // O que realmente era (P1-P5)
-    correction_reason: v.optional(v.string()), // Por que usuário discordou
-    is_learning_example: v.boolean(), // Será usado pra Fase 2?
+    emailOriginalId: v.id("emails_processados"),  // email recebido que gerou o rascunho
+    rascunhoGerado: v.string(),        // texto que Claude gerou
+    textoEnviado: v.string(),          // texto que o funcionário realmente enviou
+    similaridadePercent: v.number(),   // 0–100: quanto do rascunho foi preservado (Jaccard)
+    inReplyTo: v.string(),             // Message-ID do email original (chave de cruzamento)
+    messageIdEnviado: v.string(),       // Message-ID do email enviado (evita duplicatas)
+    timestamp: v.number(),
   })
     .index("by_funcionario", ["funcionarioId"])
-    .index("by_feedback_date", ["feedback_timestamp"])
-    .index("by_is_correct", ["is_correct"]),
+    .index("by_in_reply_to", ["inReplyTo"])
+    .index("by_message_enviado", ["messageIdEnviado"]),
 
-});
+  email_movements: defineTable({
+    funcionari
