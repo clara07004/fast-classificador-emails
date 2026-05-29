@@ -16,7 +16,6 @@
  */
 
 import { getLogger } from '../logger.js';
-import { api } from '../../convex/_generated/api.js';
 
 const log = getLogger('sent-monitor');
 
@@ -286,7 +285,7 @@ class SentMonitor {
     if (xFastDraft) return;
 
     // 2. Buscar email original no Convex pelo messageId original
-    const emailOriginal = await this.convex.query(api.emails.buscarEmailPorMessageId, {
+    const emailOriginal = await this.convex.query('emails.buscarEmailPorMessageId', {
       messageId: inReplyTo,
     });
 
@@ -316,7 +315,7 @@ class SentMonitor {
     const similaridade = calcularSimilaridade(emailOriginal.rascunhoResposta, textoEnviado);
 
     // 5. Salvar diff no Convex
-    const resultado = await this.convex.mutation(api.emails.registrarDiffRascunho, {
+    const resultado = await this.convex.mutation('emails.registrarDiffRascunho', {
       funcionarioId: this.funcionarioId,
       emailOriginalId: emailOriginal._id,
       rascunhoGerado: emailOriginal.rascunhoResposta,

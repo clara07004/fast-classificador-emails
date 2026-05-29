@@ -4,7 +4,7 @@
  * Salva, busca e atualiza emails que foram classificados pelo sistema.
  */
 
-import { mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -13,7 +13,7 @@ import { v } from "convex/values";
  * Cria um registro do email com sua classificação, justificativa e metadados.
  * Retorna o ID do email para rastreamento futuro.
  */
-export const salvarEmailProcessado = mutation({
+export const salvarEmailProcessado = internalMutation({
   args: {
     funcionarioId: v.id("funcionarios"),
     messageId: v.string(),
@@ -101,7 +101,7 @@ export const salvarEmailProcessado = mutation({
  *
  * Retorna lista de emails já classificados, filtrado por data e nível opcionalmente.
  */
-export const buscarEmailsPorFuncionario = query({
+export const buscarEmailsPorFuncionario = internalQuery({
   args: {
     funcionarioId: v.id("funcionarios"),
     limite: v.optional(v.number()),
@@ -139,7 +139,7 @@ export const buscarEmailsPorFuncionario = query({
  * Registra quando usuário corrige a classificação automática.
  * Importante para feedback e aprendizado futuro.
  */
-export const atualizarClassificacao = mutation({
+export const atualizarClassificacao = internalMutation({
   args: {
     emailId: v.id("emails_processados"),
     novoNivel: v.number(),
@@ -178,7 +178,7 @@ export const atualizarClassificacao = mutation({
 /**
  * Query: Buscar email específico
  */
-export const buscarEmailPorId = query({
+export const buscarEmailPorId = internalQuery({
   args: {
     emailId: v.id("emails_processados"),
   },
@@ -193,7 +193,7 @@ export const buscarEmailPorId = query({
  * Usado pelo SentMonitor para cruzar In-Reply-To do email enviado
  * com o messageId do email original processado.
  */
-export const buscarEmailPorMessageId = query({
+export const buscarEmailPorMessageId = internalQuery({
   args: {
     messageId: v.string(),
   },
@@ -213,7 +213,7 @@ export const buscarEmailPorMessageId = query({
  *
  * Idempotente: ignora silenciosamente se messageIdEnviado já foi registrado.
  */
-export const registrarDiffRascunho = mutation({
+export const registrarDiffRascunho = internalMutation({
   args: {
     funcionarioId: v.id("funcionarios"),
     emailOriginalId: v.id("emails_processados"),
@@ -251,7 +251,7 @@ export const registrarDiffRascunho = mutation({
  * Detecta quando usuário move um email pra pasta diferente,
  * interpretando como feedback sobre classificação automática.
  */
-export const registrarMovimento = mutation({
+export const registrarMovimento = internalMutation({
   args: {
     funcionarioId: v.id("funcionarios"),
     uid: v.number(),
@@ -316,7 +316,7 @@ export const registrarMovimento = mutation({
 /**
  * Query: Buscar movimentos recentes por funcionário (para LearningBlock / RAG Fase 2)
  */
-export const buscarMovimentosPorFuncionario = query({
+export const buscarMovimentosPorFuncionario = internalQuery({
   args: {
     funcionarioId: v.id("funcionarios"),
     limite: v.optional(v.number()),
@@ -336,7 +336,7 @@ export const buscarMovimentosPorFuncionario = query({
 /**
  * Query: Buscar movimentos recentes (para relatório semanal)
  */
-export const buscarMovimentosPorPeriodo = query({
+export const buscarMovimentosPorPeriodo = internalQuery({
   args: {
     funcionarioId: v.id("funcionarios"),
     dataInicio: v.number(),

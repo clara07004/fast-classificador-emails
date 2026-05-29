@@ -8,7 +8,6 @@
  */
 
 import { getLogger } from '../logger.js';
-import { api } from '../../convex/_generated/api.js';
 
 const log = getLogger('validation-dashboard');
 
@@ -32,12 +31,12 @@ class ValidationDashboard {
 
       // Buscar movimentos (feedback do usuário) e emails processados no período
       const [movimentos, emails] = await Promise.all([
-        this.convex.query(api.emails.buscarMovimentosPorPeriodo, {
+        this.convex.query('emails.buscarMovimentosPorPeriodo', {
           funcionarioId,
           dataInicio,
           dataFim: agora,
         }),
-        this.convex.query(api.emails.buscarEmailsPorFuncionario, {
+        this.convex.query('emails.buscarEmailsPorFuncionario', {
           funcionarioId,
           ultimosDias,
           limite: 500,

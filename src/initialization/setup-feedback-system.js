@@ -8,8 +8,7 @@
  * 4. Preparar tudo para começar
  */
 
-import { ConvexClient } from 'convex/browser';
-import { api } from '../../convex/_generated/api.js';
+import { getConvexClient } from '../convex/cliente.js';
 import { getLogger } from '../logger.js';
 import { MovimentoMonitor } from '../imap/movimento-monitor.js';
 import { LearningBlock } from '../feedback/learning-block.js';
@@ -29,18 +28,16 @@ class FeedbackSystemSetup {
    */
   async inicializar(imapClient, funcionarioId) {
     try {
-      const convexUrl = process.env.CONVEX_URL;
-      if (!convexUrl) {
-        throw new Error('CONVEX_URL não configurada em .env');
-      }
-
       log.info('🚀 Inicializando sistema de feedback...');
 
-      // 1. Conectar Convex
-      this.convexClient = new ConvexClient(convexUrl);
+      // 1. Obter GatewayClient já inicializado pelo worker principal
+      this.convexClient = getConvexClient();
+      if (!this.convexClient) {
+        throw new Error('GatewayClient Convex não inicializado — chame inicializarConvex() antes');
+      }
       this.funcionarioId = funcionarioId;
 
-      log.info({ url: convexUrl }, '✅ Convex client conectado');
+      log.info('✅ Convex GatewayClient obtido');
 
       // 2. Inicializar MovimentoMonitor com Convex
       this.movimentoMonitor = new MovimentoMonitor(imapClient, this.convexClient);
@@ -74,7 +71,7 @@ class FeedbackSystemSetup {
     try {
       // Teste simples: tentar buscar email do funcionário
       // Vai falhar com ID fake, mas prova que API está acessível
-      await this.convexClient.query(api.emails.buscarEmailPorId, {
+      await this.convexClient.query('emails.buscarEmailPorId', {
         emailId: 'test-id-123',
       });
     } catch (err) {

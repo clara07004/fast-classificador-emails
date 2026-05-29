@@ -8,7 +8,6 @@
  */
 
 import { getLogger } from '../logger.js';
-import { api } from '../../convex/_generated/api.js';
 
 const log = getLogger('learning-block');
 
@@ -31,7 +30,7 @@ class LearningBlock {
       }
 
       const movimentos = await this.convex.query(
-        api.emails.buscarMovimentosPorFuncionario,
+        'emails.buscarMovimentosPorFuncionario',
         { funcionarioId, limite: MAX_RECENT_CORRECTIONS }
       );
 

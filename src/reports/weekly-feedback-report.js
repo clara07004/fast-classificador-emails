@@ -11,7 +11,6 @@
 
 import { getLogger } from '../logger.js';
 import nodemailer from 'nodemailer';
-import { api } from '../../convex/_generated/api.js';
 
 const log = getLogger('weekly-report');
 
@@ -32,7 +31,7 @@ class WeeklyFeedbackReport {
       }
 
       const movimentos = await this.convex.query(
-        api.emails.buscarMovimentosPorPeriodo,
+        'emails.buscarMovimentosPorPeriodo',
         { funcionarioId, dataInicio, dataFim }
       );
 

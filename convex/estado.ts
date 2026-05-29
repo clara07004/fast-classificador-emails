@@ -5,7 +5,7 @@
  * Crítico para idempotência e prevenção de duplicação.
  */
 
-import { mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -18,7 +18,7 @@ import { v } from "convex/values";
  * - Se chamar 2x com mesmo UID, apenas último valor fica
  * - Próxima busca de "novos emails" ignora UIDs <= ultimoUidProcessado
  */
-export const atualizarUltimoBuscado = mutation({
+export const atualizarUltimoBuscado = internalMutation({
   args: {
     funcionarioId: v.id("funcionarios"),
     ultimoUid: v.number(),
@@ -63,7 +63,7 @@ export const atualizarUltimoBuscado = mutation({
  *
  * Retorna último UID processado para buscar apenas novos emails na reconexão.
  */
-export const obterEstado = query({
+export const obterEstado = internalQuery({
   args: {
     funcionarioId: v.id("funcionarios"),
   },
@@ -97,7 +97,7 @@ export const obterEstado = query({
  * Rastreia se worker está conectado ou processando.
  * Útil para debug e monitoramento.
  */
-export const atualizarStatusConexao = mutation({
+export const atualizarStatusConexao = internalMutation({
   args: {
     funcionarioId: v.id("funcionarios"),
     status: v.string(), // "conectado" | "desconectado" | "processando"
