@@ -72,7 +72,7 @@ export default defineSchema({
     .index("by_remetente", ["remetenteId"]),
 
   // vectorIndex "by_embedding" adicionado para RAG da Fase 2 via Convex Vector Search.
-  // dimensions: 1024 = voyage-3-lite. filterFields: ["funcionarioId"] = busca isolada por funcionário.
+  // dimensions: 1024 = voyage-3-lite. filterFields: ["funcionarioId"] = busca isolada por funcionario.
   correcoes: defineTable({
     emailId: v.id("emails_processados"),
     funcionarioId: v.id("funcionarios"),
@@ -102,9 +102,9 @@ export default defineSchema({
     .index("by_funcionario_email", ["funcionarioId", "email"])
     .index("by_funcionario_dominio", ["funcionarioId", "dominio"]),
 
-  // Estado de processamento IMAP — garante idempotência na reconexão
-  // Rastreia qual foi o último UID processado por funcionário
-  // Previne duplicação quando worker reconecta a cada 28 minutos
+  // Estado de processamento IMAP --- garante idempotencia na reconexao
+  // Rastreia qual foi o ultimo UID processado por funcionario
+  // Previne duplicacao quando worker reconecta a cada 28 minutos
   estadoProcessamento: defineTable({
     funcionarioId: v.id("funcionarios"),
     ultimoUidProcessado: v.number(),
@@ -114,16 +114,16 @@ export default defineSchema({
   })
     .index("by_funcionario", ["funcionarioId"]),
 
-  // Diff entre rascunho gerado e email realmente enviado pelo funcionário.
-  // Alimenta o style card na Fase 2 — aprende como cada pessoa edita os rascunhos.
+  // Diff entre rascunho gerado e email realmente enviado pelo funcionario.
+  // Alimenta o style card na Fase 2 --- aprende como cada pessoa edita os rascunhos.
   draft_diffs: defineTable({
     funcionarioId: v.id("funcionarios"),
-    emailOriginalId: v.id("emails_processados"),  // email recebido que gerou o rascunho
-    rascunhoGerado: v.string(),        // texto que Claude gerou
-    textoEnviado: v.string(),          // texto que o funcionário realmente enviou
-    similaridadePercent: v.number(),   // 0–100: quanto do rascunho foi preservado (Jaccard)
-    inReplyTo: v.string(),             // Message-ID do email original (chave de cruzamento)
-    messageIdEnviado: v.string(),       // Message-ID do email enviado (evita duplicatas)
+    emailOriginalId: v.id("emails_processados"),
+    rascunhoGerado: v.string(),
+    textoEnviado: v.string(),
+    similaridadePercent: v.number(),
+    inReplyTo: v.string(),
+    messageIdEnviado: v.string(),
     timestamp: v.number(),
   })
     .index("by_funcionario", ["funcionarioId"])
@@ -131,4 +131,25 @@ export default defineSchema({
     .index("by_message_enviado", ["messageIdEnviado"]),
 
   email_movements: defineTable({
-    funcionari
+    funcionarioId: v.id("funcionarios"),
+    uid: v.number(),
+    subject: v.string(),
+    from: v.string(),
+    received_at: v.number(),
+    classified_as: v.string(),
+    confidence: v.optional(v.number()),
+    system_folder: v.string(),
+    classification_timestamp: v.number(),
+    user_moved_to: v.string(),
+    feedback_timestamp: v.number(),
+    feedback_delay_minutes: v.number(),
+    is_correct: v.boolean(),
+    expected_priority: v.optional(v.string()),
+    correction_reason: v.optional(v.string()),
+    is_learning_example: v.boolean(),
+  })
+    .index("by_funcionario", ["funcionarioId"])
+    .index("by_feedback_date", ["feedback_timestamp"])
+    .index("by_is_correct", ["is_correct"]),
+
+});
