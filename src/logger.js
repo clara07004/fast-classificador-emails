@@ -60,3 +60,17 @@ export function getLogger(moduleName) {
 }
 
 export default baseLogger;
+
+/**
+ * Mascara endereço de email para logs — preserva domínio, oculta usuário.
+ * Ex: clara.barbosa@fastdrywall.com.br → ***@fastdrywall.com.br
+ *
+ * @param {string} email
+ * @returns {string}
+ */
+export function mascarEmail(email) {
+  if (!email || typeof email !== 'string') return '***';
+  const at = email.indexOf('@');
+  if (at === -1) return '***';
+  return `***@${email.slice(at + 1)}`;
+}
