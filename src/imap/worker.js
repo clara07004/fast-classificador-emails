@@ -13,6 +13,7 @@ import { garantirPastasFast, moverComFallback, obterPastaParaNivel } from './pas
 import { classificarEmail } from './classificador.js';
 import { analisarContextoConversa } from './thread-context.js';
 import { MovimentoMonitor } from './movimento-monitor.js';
+import { extrairCorpoEmail } from './sanitizador.js';
 import { gerarRascunho } from '../drafts/draft-generator.js';
 import { salvarRascunhoIMAP } from '../drafts/draft-saver.js';
 import { SentMonitor } from '../drafts/sent-monitor.js';
@@ -413,33 +414,10 @@ function normalizarEmail(message, uid) {
     from: envelope.from?.[0]?.address || 'desconhecido',
     to: envelope.to?.[0]?.address || '',
     subject: envelope.subject || '(sem assunto)',
-    text: extrairTextoSimples(message),
+    text: extrairCorpoEmail(message.source),
     date: envelope.date ? new Date(envelope.date).getTime() : Date.now(),
     attachments: detectarAnexos(message),
   };
-}
-
-/**
- * Extrair texto simples do email
- * Tira HTML e encoding, pega primeiras 800 chars
- *
- * @param {Object} message - Mensagem do ImapFlow
- * @returns {string} - Texto simples
- */
-function extrairTextoSimples(message) {
-  // ImapFlow retorna source (raw) ou parts (parsed)
-  // Para simplicidade, tomar os primeiros 800 chars do source
-  if (message.source && typeof message.source === 'string') {
-    return message.source.substring(0, 1000);
-  }
-
-  // Fallback: tentar bodyStructure
-  if (message.bodyStructure) {
-    // bodyStructure é complexo, por ora retorna vazio
-    return '';
-  }
-
-  return '';
 }
 
 /**

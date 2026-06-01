@@ -19,6 +19,7 @@ import {
   ajustarClassificacaoPorContexto,
 } from './thread-context.js';
 import { getLogger } from '../logger.js';
+import { sanitizarParaPrompt } from './sanitizador.js';
 
 const log = getLogger('classificador');
 
@@ -309,17 +310,7 @@ async function classificarComClaude(email, funcionario, contexto) {
  * Construir prompt para Claude
  * @private
  */
-/**
- * Sanitiza campos do email removendo tags XML de delimitação.
- * Impede que um remetente malicioso "feche" o bloco <email_content>
- * prematuramente e injete instruções fora dele.
- * @private
- */
-function sanitizarCampoEmail(str, maxLen = 800) {
-  return (str || '')
-    .substring(0, maxLen)
-    .replace(/<\/?(email_content|de|assunto|corpo)[^>]*>/gi, '[tag]');
-}
+// sanitizarCampoEmail substituída por sanitizarParaPrompt (importada de sanitizador.js)
 
 /**
  * Construir prompt para Claude com isolamento contra prompt injection.
@@ -336,9 +327,9 @@ function sanitizarCampoEmail(str, maxLen = 800) {
 function construirPrompt(email, funcionario, contexto) {
   const { subject, from, text } = email;
 
-  const fromSanitizado    = sanitizarCampoEmail(from, 200);
-  const subjectSanitizado = sanitizarCampoEmail(subject, 200);
-  const corpoSanitizado   = sanitizarCampoEmail(text, 800);
+  const fromSanitizado    = sanitizarParaPrompt(from, 200);
+  const subjectSanitizado = sanitizarParaPrompt(subject, 200);
+  const corpoSanitizado   = sanitizarParaPrompt(text, 800);
 
   let prompt = `Classifique o email em um dos 5 níveis:
 
