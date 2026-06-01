@@ -1,116 +1,169 @@
 /**
  * Cliente Convex para o Worker IMAP
  *
- * Implementação real usando ConvexClient e API gerada.
+ * Implementacao via HTTP Gateway com autenticacao Bearer token.
+ * Substitui o ConvexClient WebSocket (que nao exigia autenticacao).
+ *
+ * O gateway esta em POST https://<deployment>.convex.site/api
+ * O token e lido de CONVEX_AUTH_TOKEN no .env.
  */
 
-import { ConvexClient } from "convex/browser";
-import { api } from "../../convex/_generated/api.js";
 import { getLogger } from "../logger.js";
 
 const log = getLogger("convex-client");
 
 const MAX_RETRIES = 3;
-const TIMEOUT_MS = 60000; // 60s — Convex pode ser muito lento, especialmente em cold starts
+const TIMEOUT_MS = 60000; // 60s
 
 let clienteGlobal = null;
 
-/**
- * Fazer chamada ao Convex com retry e timeout
- *
- * @param {function} funcaoApi - Referência da API (ex: api.estado.obterEstado)
- * @param {object} args - Argumentos da função
- * @param {boolean} ehMutation - true para mutations, false para queries
- * @returns {Promise<object>}
- */
-async function chamarConvex(funcaoApi, args, ehMutation = false) {
-  if (!clienteGlobal) {
-    throw new Error("Cliente Convex não inicializado");
+// ---------------------------------------------------------------------------
+// GatewayClient
+// ---------------------------------------------------------------------------
+
+class GatewayClient {
+  /**
+   * @param {string} siteUrl  - Ex: https://chatty-panda-261.convex.site
+   * @param {string} token    - Bearer token (CONVEX_AUTH_TOKEN)
+   */
+  constructor(siteUrl, token) {
+    this.endpoint = siteUrl.replace(/\/$/, "") + "/api";
+    this.token = token;
   }
 
-  for (let tentativa = 0; tentativa < MAX_RETRIES; tentativa++) {
-    try {
-      // Usar query para queries e mutation para mutations
-      const promise = ehMutation
-        ? clienteGlobal.mutation(funcaoApi, args)
-        : clienteGlobal.query(funcaoApi, args);
+  /**
+   * Chama uma query ou mutation no gateway.
+   *
+   * @param {string} fn   - Nome da funcao, ex: 'emails.salvarEmailProcessado'
+   * @param {object} args - Argumentos
+   * @param {string} type - 'query' ou 'mutation'
+   */
+  async _call(fn, args, type) {
+    const body = JSON.stringify({ fn, type, args });
 
-      // Usar Promise.race para timeout robusto
-      const resultado = await Promise.race([
-        promise,
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Timeout ao chamar Convex")),
-            TIMEOUT_MS
-          )
-        ),
-      ]);
+    for (let tentativa = 0; tentativa < MAX_RETRIES; tentativa++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-      return resultado;
-    } catch (err) {
-      const ehTimeout = err.message?.includes("Timeout");
-      const ehRetentavel =
-        ehTimeout || err.message?.includes("ECONNREFUSED");
+      try {
+        const res = await fetch(this.endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.token}`,
+          },
+          body,
+          signal: controller.signal,
+        });
 
-      if (tentativa < MAX_RETRIES - 1 && ehRetentavel) {
-        const delay = Math.pow(2, tentativa) * 1000; // Backoff exponencial
-        log.warn(
-          { tentativa, delay, erro: err.message },
-          "Convex falhou, tentando novamente..."
-        );
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        continue;
+        clearTimeout(timer);
+
+        const json = await res.json();
+
+        if (!res.ok) {
+          throw new Error(
+            json?.erro || `HTTP ${res.status} ao chamar ${fn}`
+          );
+        }
+
+        return json.resultado;
+      } catch (err) {
+        clearTimeout(timer);
+
+        const ehAbort = err.name === "AbortError";
+        const ehRetentavel =
+          ehAbort ||
+          err.message?.includes("ECONNREFUSED") ||
+          err.message?.includes("fetch failed");
+
+        if (tentativa < MAX_RETRIES - 1 && ehRetentavel) {
+          const delay = Math.pow(2, tentativa) * 1000;
+          log.warn(
+            { tentativa, delay, erro: err.message, fn },
+            "Gateway falhou, tentando novamente..."
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+
+        log.error({ tentativa, erro: err.message, fn }, "Erro ao chamar gateway apos retries");
+        throw err;
       }
-
-      log.error(
-        { tentativa, erro: err.message, args },
-        "Erro ao chamar Convex após retries"
-      );
-      throw err;
     }
+  }
+
+  /**
+   * Executa uma query (leitura).
+   * @param {string} fn
+   * @param {object} args
+   */
+  async query(fn, args) {
+    return this._call(fn, args, "query");
+  }
+
+  /**
+   * Executa uma mutation (escrita).
+   * @param {string} fn
+   * @param {object} args
+   */
+  async mutation(fn, args) {
+    return this._call(fn, args, "mutation");
   }
 }
 
+// ---------------------------------------------------------------------------
+// Exports publicos
+// ---------------------------------------------------------------------------
+
 /**
- * Inicializar cliente Convex
- *
- * Cria instância do cliente e valida conexão.
+ * Retorna a instancia raw do GatewayClient.
+ * Usado por modulos que chamam .query()/.mutation() diretamente (ex: MovimentoMonitor).
+ */
+export function getConvexClient() {
+  return clienteGlobal;
+}
+
+/**
+ * Inicializar cliente Convex (gateway HTTP)
  */
 export async function inicializarConvex() {
   try {
-    const url = process.env.CONVEX_URL;
-    if (!url) {
-      throw new Error("CONVEX_URL não configurada em .env");
+    const convexUrl = process.env.CONVEX_URL;
+    if (!convexUrl) {
+      throw new Error("CONVEX_URL nao configurada em .env");
     }
 
-    log.info(
-      { url },
-      "Inicializando cliente Convex..."
-    );
+    const token = process.env.CONVEX_AUTH_TOKEN;
+    if (!token) {
+      throw new Error("CONVEX_AUTH_TOKEN nao configurado em .env");
+    }
 
-    clienteGlobal = new ConvexClient(url);
+    // Derivar siteUrl: trocar .convex.cloud por .convex.site
+    const siteUrl = convexUrl.replace(".convex.cloud", ".convex.site");
 
-    // Teste de conexão simples com ID fake (vai falhar, mas prova que API responde)
+    log.info({ siteUrl }, "Inicializando GatewayClient Convex...");
+
+    clienteGlobal = new GatewayClient(siteUrl, token);
+
+    // Teste de conectividade: faz uma query com ID fake
+    // Deve retornar dados padrao (nao ha throw em estado.obterEstado com ID invalido)
     try {
-      await chamarConvex(api.estado.obterEstado, {
+      await clienteGlobal.query("estado.obterEstado", {
         funcionarioId: "test-conexao-xyz",
       });
+      log.debug("Teste de conexao gateway: OK");
     } catch (err) {
-      // Esperado falhar com ID fake, mas prova que API está acessível
-      if (err.message?.includes("Could not find")) {
-        log.debug("Teste de conexão: API respondeu conforme esperado");
-      } else {
-        log.warn({ erro: err.message }, "Aviso durante teste de conexão");
-      }
+      // Falha esperada com ID invalido (tipo incompativel) — gateway respondeu
+      log.debug(
+        { erro: err.message },
+        "Teste de conexao gateway: respondeu com erro esperado"
+      );
     }
 
-    log.info("Cliente Convex inicializado com sucesso");
+    log.info("GatewayClient Convex inicializado com sucesso");
     return true;
   } catch (err) {
-    log.error(
-      { erro: err.message },
-      "Falha ao inicializar Convex"
-    );
+    log.error({ erro: err.message }, "Falha ao inicializar GatewayClient Convex");
     throw err;
   }
 }
@@ -118,13 +171,12 @@ export async function inicializarConvex() {
 /**
  * Obter estado de processamento IMAP
  *
- * Retorna último UID processado para buscar apenas novos emails.
- * @param {string} funcionarioId - ID do funcionário
+ * @param {string} funcionarioId
  * @returns {Promise<{ultimoUidProcessado: number, statusConexao: string}>}
  */
 export async function obterEstadoProcessamento(funcionarioId) {
   try {
-    const resultado = await chamarConvex(api.estado.obterEstado, {
+    const resultado = await clienteGlobal.query("estado.obterEstado", {
       funcionarioId,
     });
 
@@ -143,14 +195,11 @@ export async function obterEstadoProcessamento(funcionarioId) {
 }
 
 /**
- * Atualizar último UID processado
+ * Atualizar ultimo UID processado
  *
- * DEVE ser chamado ANTES de qualquer ação (mover, salvar) para garantir idempotência.
- * Previne duplicação quando worker reconecta.
- *
- * @param {string} funcionarioId - ID do funcionário
- * @param {number} ultimoUid - Último UID processado
- * @param {string} status - Status da conexão (opcional)
+ * @param {string} funcionarioId
+ * @param {number} ultimoUid
+ * @param {string} status
  */
 export async function atualizarUltimoBuscado(
   funcionarioId,
@@ -158,20 +207,16 @@ export async function atualizarUltimoBuscado(
   status = "processando"
 ) {
   try {
-    const resultado = await chamarConvex(
-      api.estado.atualizarUltimoBuscado,
+    const resultado = await clienteGlobal.mutation(
+      "estado.atualizarUltimoBuscado",
       {
         funcionarioId,
         ultimoUid,
         statusConexao: status,
-      },
-      true
+      }
     );
 
-    log.debug(
-      { funcionarioId, ultimoUid, status },
-      "UID atualizado com sucesso"
-    );
+    log.debug({ funcionarioId, ultimoUid, status }, "UID atualizado com sucesso");
     return resultado;
   } catch (err) {
     log.error(
@@ -183,28 +228,27 @@ export async function atualizarUltimoBuscado(
 }
 
 /**
- * Atualizar status de conexão IMAP
+ * Atualizar status de conexao IMAP
  *
- * @param {string} funcionarioId - ID do funcionário
+ * @param {string} funcionarioId
  * @param {string} status - "conectado" | "desconectado" | "processando"
  */
 export async function atualizarStatusConexao(funcionarioId, status) {
   try {
-    const resultado = await chamarConvex(
-      api.estado.atualizarStatusConexao,
+    const resultado = await clienteGlobal.mutation(
+      "estado.atualizarStatusConexao",
       {
         funcionarioId,
         status,
-      },
-      true
+      }
     );
 
-    log.debug({ funcionarioId, status }, "Status de conexão atualizado");
+    log.debug({ funcionarioId, status }, "Status de conexao atualizado");
     return resultado;
   } catch (err) {
     log.error(
       { funcionarioId, status, erro: err.message },
-      "Erro ao atualizar status de conexão"
+      "Erro ao atualizar status de conexao"
     );
     throw err;
   }
@@ -212,8 +256,6 @@ export async function atualizarStatusConexao(funcionarioId, status) {
 
 /**
  * Salvar email processado
- *
- * Registra um email que foi classificado com seu nível e justificativa.
  *
  * @param {string} funcionarioId
  * @param {object} email - {messageId, subject, from, attachments?}
@@ -229,8 +271,8 @@ export async function salvarClassificacao(
   contexto = {}
 ) {
   try {
-    const resultado = await chamarConvex(
-      api.emails.salvarEmailProcessado,
+    const resultado = await clienteGlobal.mutation(
+      "emails.salvarEmailProcessado",
       {
         funcionarioId,
         messageId: email.messageId || email.uid,
@@ -243,8 +285,7 @@ export async function salvarClassificacao(
         temAnexos: (email.attachments?.length || 0) > 0,
         confidenceScore: contexto.confidenceScore,
         rascunhoResposta: contexto.rascunho,
-      },
-      true
+      }
     );
 
     log.debug(
@@ -265,18 +306,35 @@ export async function salvarClassificacao(
         nivel,
         erro: err.message,
       },
-      "Erro ao salvar classificação"
+      "Erro ao salvar classificacao"
     );
     throw err;
   }
 }
 
 /**
- * Buscar emails processados de um funcionário
+ * Listar todos os funcionários ativos (com credenciais IMAP quando disponíveis)
+ *
+ * Usado pelo worker no boot para iniciar uma conexão IMAP por funcionário.
+ * @returns {Promise<Array>}
+ */
+export async function listarFuncionariosAtivos() {
+  try {
+    const resultado = await clienteGlobal.query("funcionarios.listarAtivos", {});
+    log.debug({ total: resultado?.length ?? 0 }, 'Funcionários ativos carregados do Convex');
+    return resultado || [];
+  } catch (err) {
+    log.error({ erro: err.message }, 'Erro ao listar funcionários ativos');
+    throw err;
+  }
+}
+
+/**
+ * Buscar emails processados de um funcionario
  *
  * @param {string} funcionarioId
- * @param {number} limite - Quantos emails (default: 50)
- * @param {number} ultimosDias - Últimos N dias (default: 30)
+ * @param {number} limite
+ * @param {number} ultimosDias
  */
 export async function buscarEmailsProcessados(
   funcionarioId,
@@ -284,8 +342,37 @@ export async function buscarEmailsProcessados(
   ultimosDias = 30
 ) {
   try {
-    const resultado = await chamarConvex(
-      api.emails.buscarEmailsPorFuncionario,
+    const resultado = await clienteGlobal.query(
+      "emails.buscarEmailsPorFuncionario",
+      {
+        funcionarioId,
+        limite,
+        ultimosDias,
+      }
+    );
+
+    log.debug(
+      { funcionarioId, quantidade: resultado.length, limite, ultimosDias },
+      "Emails buscados"
+    );
+    return resultado;
+  } catch (err) {
+    log.error(
+      { funcionarioId, erro: err.message },
+      "Erro ao buscar emails processados"
+    );
+    throw err;
+  }
+}
+ */
+export async function buscarEmailsProcessados(
+  funcionarioId,
+  limite = 50,
+  ultimosDias = 30
+) {
+  try {
+    const resultado = await clienteGlobal.query(
+      "emails.buscarEmailsPorFuncionario",
       {
         funcionarioId,
         limite,

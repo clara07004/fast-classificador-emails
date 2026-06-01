@@ -10,6 +10,14 @@ export default defineSchema({
     ativo: v.boolean(),
     criadoEm: v.number(),
     atualizadoEm: v.number(),
+    // Credenciais IMAP — preenchidas ao cadastrar o funcionário no rollout.
+    // Campos opcionais para não quebrar registros existentes.
+    // Se ausentes, o worker usa as variáveis de ambiente IMAP_USER/IMAP_PASSWORD
+    // como fallback (compatibilidade com o piloto original).
+    imapUser: v.optional(v.string()),
+    imapPassword: v.optional(v.string()),
+    imapHost: v.optional(v.string()),  // se null, usa IMAP_HOST do .env
+    imapPort: v.optional(v.number()),  // se null, usa IMAP_PORT do .env
   }).index("by_email", ["email"]),
 
   perfis: defineTable({
@@ -72,7 +80,7 @@ export default defineSchema({
     .index("by_remetente", ["remetenteId"]),
 
   // vectorIndex "by_embedding" adicionado para RAG da Fase 2 via Convex Vector Search.
-  // dimensions: 1024 = voyage-3-lite. filterFields: ["funcionarioId"] = busca isolada por funcionário.
+  // dimensions: 1024 = voyage-3-lite. filterFields: ["funcionarioId"] = busca isolada por funcionario.
   correcoes: defineTable({
     emailId: v.id("emails_processados"),
     funcionarioId: v.id("funcionarios"),
@@ -102,9 +110,9 @@ export default defineSchema({
     .index("by_funcionario_email", ["funcionarioId", "email"])
     .index("by_funcionario_dominio", ["funcionarioId", "dominio"]),
 
-  // Estado de processamento IMAP — garante idempotência na reconexão
-  // Rastreia qual foi o último UID processado por funcionário
-  // Previne duplicação quando worker reconecta a cada 28 minutos
+  // Estado de processamento IMAP --- garante idempotencia na reconexao
+  // Rastreia qual foi o ultimo UID processado por funcionario
+  // Previne duplicacao quando worker reconecta a cada 28 minutos
   estadoProcessamento: defineTable({
     funcionarioId: v.id("funcionarios"),
     ultimoUidProcessado: v.number(),
@@ -114,23 +122,39 @@ export default defineSchema({
   })
     .index("by_funcionario", ["funcionarioId"]),
 
+  // Diff entre rascunho gerado e email realmente enviado pelo funcionario.
+  // Alimenta o style card na Fase 2 --- aprende como cada pessoa edita os rascunhos.
+  draft_diffs: defineTable({
+    funcionarioId: v.id("funcionarios"),
+    emailOriginalId: v.id("emails_processados"),
+    rascunhoGerado: v.string(),
+    textoEnviado: v.string(),
+    similaridadePercent: v.number(),
+    inReplyTo: v.string(),
+    messageIdEnviado: v.string(),
+    timestamp: v.number(),
+  })
+    .index("by_funcionario", ["funcionarioId"])
+    .index("by_in_reply_to", ["inReplyTo"])
+    .index("by_message_enviado", ["messageIdEnviado"]),
+
   email_movements: defineTable({
     funcionarioId: v.id("funcionarios"),
     uid: v.number(),
     subject: v.string(),
     from: v.string(),
     received_at: v.number(),
-    classified_as: v.string(), // P1-P5
+    classified_as: v.string(),
     confidence: v.optional(v.number()),
-    system_folder: v.string(), // Onde sistema moveu (ex: INBOX.Fast-Urgente)
+    system_folder: v.string(),
     classification_timestamp: v.number(),
-    user_moved_to: v.string(), // Onde usuário moveu
+    user_moved_to: v.string(),
     feedback_timestamp: v.number(),
-    feedback_delay_minutes: v.number(), // Tempo entre classificação e movimento
-    is_correct: v.boolean(), // Sistema acertou?
-    expected_priority: v.optional(v.string()), // O que realmente era (P1-P5)
-    correction_reason: v.optional(v.string()), // Por que usuário discordou
-    is_learning_example: v.boolean(), // Será usado pra Fase 2?
+    feedback_delay_minutes: v.number(),
+    is_correct: v.boolean(),
+    expected_priority: v.optional(v.string()),
+    correction_reason: v.optional(v.string()),
+    is_learning_example: v.boolean(),
   })
     .index("by_funcionario", ["funcionarioId"])
     .index("by_feedback_date", ["feedback_timestamp"])

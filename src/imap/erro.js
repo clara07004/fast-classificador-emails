@@ -68,8 +68,8 @@ export async function registrarErroProcessamento(erro) {
     'Email falhou ao processar — movido para Pendente-Classificacao'
   );
 
-  // TODO: Quando Convex integrado
-  // await salvarErroEmConvex(registroErro);
+  // Persistência de erros em Convex requer tabela `erros` no schema (Fase 2).
+  // Por ora, erros ficam visíveis nos logs do PM2 e o email vai para Pendente-Classificacao.
 
   return { sucesso: true, registrado: true };
 }
@@ -165,14 +165,11 @@ function inferirTipoErro(err) {
 
 /**
  * Obter estatísticas de erros
- * (quando Convex integrado)
+ * Fase 2: implementar com tabela `erros` no schema Convex.
  *
  * @returns {Promise<{totalErros, errosPorTipo, emailsEmPendente}>}
  */
 export async function obterEstatisticasErros() {
-  // TODO: Quando Convex integrado
-  // return await buscarEstatisticasEmConvex();
-
   return {
     totalErros: 0,
     errosPorTipo: {},

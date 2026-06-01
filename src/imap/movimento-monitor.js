@@ -10,7 +10,6 @@
 
 import { getLogger } from '../logger.js';
 import { obterTodasAsPastas } from './pastas.js';
-import { api } from '../../convex/_generated/api.js';
 
 const log = getLogger('movimento-monitor');
 
@@ -260,7 +259,7 @@ class MovimentoMonitor {
         return;
       }
 
-      await this.convex.mutation(api.emails.registrarMovimento, movimento);
+      await this.convex.mutation('emails.registrarMovimento', movimento);
 
       log.info(
         {

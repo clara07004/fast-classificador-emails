@@ -4,7 +4,7 @@
  * Salva, busca e atualiza emails que foram classificados pelo sistema.
  */
 
-import { mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -13,7 +13,7 @@ import { v } from "convex/values";
  * Cria um registro do email com sua classificação, justificativa e metadados.
  * Retorna o ID do email para rastreamento futuro.
  */
-export const salvarEmailProcessado = mutation({
+export const salvarEmailProcessado = internalMutation({
   args: {
     funcionarioId: v.id("funcionarios"),
     messageId: v.string(),
@@ -77,7 +77,7 @@ export const salvarEmailProcessado = mutation({
       nivelClassificado: args.nivelClassificado,
       justificativa: args.justificativa,
       confidenceScore: args.confidenceScore,
-      modeloUsado: "claude-opus-4-7",
+      modeloUsado: "claude-opus-4-6",
       rascunhoResposta: args.rascunhoResposta,
       aceitoSemCorrecao: undefined, // Será preenchido quando usuário revisar
       versaoPrompt: "1.0",
@@ -101,7 +101,7 @@ export const salvarEmailProcessado = mutation({
  *
  * Retorna lista de emails já classificados, filtrado por data e nível opcionalmente.
  */
-export const buscarEmailsPorFuncionario = query({
+export const buscarEmailsPorFuncionario = internalQuery({
   args: {
     funcionarioId: v.id("funcionarios"),
     limite: v.optional(v.number()),
@@ -139,7 +139,7 @@ export const buscarEmailsPorFuncionario = query({
  * Registra quando usuário corrige a classificação automática.
  * Importante para feedback e aprendizado futuro.
  */
-export const atualizarClassificacao = mutation({
+export const atualizarClassificacao = internalMutation({
   args: {
     emailId: v.id("emails_processados"),
     novoNivel: v.number(),
@@ -178,7 +178,7 @@ export const atualizarClassificacao = mutation({
 /**
  * Query: Buscar email específico
  */
-export const buscarEmailPorId = query({
+export const buscarEmailPorId = internalQuery({
   args: {
     emailId: v.id("emails_processados"),
   },
@@ -188,12 +188,70 @@ export const buscarEmailPorId = query({
 });
 
 /**
+ * Query: Buscar email por Message-ID original
+ *
+ * Usado pelo SentMonitor para cruzar In-Reply-To do email enviado
+ * com o messageId do email original processado.
+ */
+export const buscarEmailPorMessageId = internalQuery({
+  args: {
+    messageId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("emails_processados")
+      .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
+      .first();
+  },
+});
+
+/**
+ * Mutation: Registrar diff rascunho × enviado (T39)
+ *
+ * Salva a diferença entre o rascunho gerado por Claude e o email
+ * que o funcionário realmente enviou. Alimenta o style card na Fase 2.
+ *
+ * Idempotente: ignora silenciosamente se messageIdEnviado já foi registrado.
+ */
+export const registrarDiffRascunho = internalMutation({
+  args: {
+    funcionarioId: v.id("funcionarios"),
+    emailOriginalId: v.id("emails_processados"),
+    rascunhoGerado: v.string(),
+    textoEnviado: v.string(),
+    similaridadePercent: v.number(),
+    inReplyTo: v.string(),
+    messageIdEnviado: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Idempotência: evitar registrar o mesmo email enviado duas vezes
+    const jaExiste = await ctx.db
+      .query("draft_diffs")
+      .withIndex("by_message_enviado", (q) =>
+        q.eq("messageIdEnviado", args.messageIdEnviado)
+      )
+      .first();
+
+    if (jaExiste) {
+      return { sucesso: true, diffId: jaExiste._id, duplicata: true };
+    }
+
+    const diffId = await ctx.db.insert("draft_diffs", {
+      ...args,
+      timestamp: Date.now(),
+    });
+
+    return { sucesso: true, diffId, duplicata: false };
+  },
+});
+
+/**
  * Mutation: Registrar movimento de email (Feedback Loop)
  *
  * Detecta quando usuário move um email pra pasta diferente,
  * interpretando como feedback sobre classificação automática.
  */
-export const registrarMovimento = mutation({
+export const registrarMovimento = internalMutation({
   args: {
     funcionarioId: v.id("funcionarios"),
     uid: v.number(),
@@ -256,9 +314,29 @@ export const registrarMovimento = mutation({
 });
 
 /**
+ * Query: Buscar movimentos recentes por funcionário (para LearningBlock / RAG Fase 2)
+ */
+export const buscarMovimentosPorFuncionario = internalQuery({
+  args: {
+    funcionarioId: v.id("funcionarios"),
+    limite: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limite = args.limite ?? 20;
+    return await ctx.db
+      .query("email_movements")
+      .withIndex("by_funcionario", (q) =>
+        q.eq("funcionarioId", args.funcionarioId)
+      )
+      .order("desc")
+      .take(limite);
+  },
+});
+
+/**
  * Query: Buscar movimentos recentes (para relatório semanal)
  */
-export const buscarMovimentosPorPeriodo = query({
+export const buscarMovimentosPorPeriodo = internalQuery({
   args: {
     funcionarioId: v.id("funcionarios"),
     dataInicio: v.number(),
@@ -278,5 +356,50 @@ export const buscarMovimentosPorPeriodo = query({
         m.feedback_timestamp >= args.dataInicio &&
         m.feedback_timestamp <= args.dataFim
       );
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Queries de export para backup (S5)
+// Sem paginação — retornam todos os registros do funcionário.
+// Usadas apenas pelo script de backup, não pelo worker em tempo real.
+// ---------------------------------------------------------------------------
+
+/**
+ * Export: todas as correções de um funcionário
+ */
+export const exportarCorrecoes = internalQuery({
+  args: { funcionarioId: v.id("funcionarios") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("correcoes")
+      .withIndex("by_funcionario", (q) => q.eq("funcionarioId", args.funcionarioId))
+      .collect();
+  },
+});
+
+/**
+ * Export: todos os movimentos de um funcionário
+ */
+export const exportarMovimentos = internalQuery({
+  args: { funcionarioId: v.id("funcionarios") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("email_movements")
+      .withIndex("by_funcionario", (q) => q.eq("funcionarioId", args.funcionarioId))
+      .collect();
+  },
+});
+
+/**
+ * Export: todos os diffs rascunho×enviado de um funcionário
+ */
+export const exportarDiffRascunhos = internalQuery({
+  args: { funcionarioId: v.id("funcionarios") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("draft_diffs")
+      .withIndex("by_funcionario", (q) => q.eq("funcionarioId", args.funcionarioId))
+      .collect();
   },
 });
