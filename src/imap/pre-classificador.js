@@ -29,7 +29,8 @@ const PADROES_URGENCIA = {
     /lembrete.*importante/i,
     /lembrete.*urgente/i,
     /pedido\s+(de|do)\s+cliente/i,
-    /importante/i,
+    // REMOVIDO: /importante/i — abrangente demais, qualquer newsletter dispara N2.
+    // "lembrete.*importante" acima já cobre o caso legítimo.
     /\burgente\b/i,  // Case-insensitive mas como palavra completa
     /projeto\s+(em\s+atraso|atrasado)/i,
   ],

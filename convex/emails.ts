@@ -77,7 +77,7 @@ export const salvarEmailProcessado = internalMutation({
       nivelClassificado: args.nivelClassificado,
       justificativa: args.justificativa,
       confidenceScore: args.confidenceScore,
-      modeloUsado: "claude-opus-4-7",
+      modeloUsado: "claude-opus-4-6",
       rascunhoResposta: args.rascunhoResposta,
       aceitoSemCorrecao: undefined, // Será preenchido quando usuário revisar
       versaoPrompt: "1.0",

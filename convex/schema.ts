@@ -10,6 +10,14 @@ export default defineSchema({
     ativo: v.boolean(),
     criadoEm: v.number(),
     atualizadoEm: v.number(),
+    // Credenciais IMAP — preenchidas ao cadastrar o funcionário no rollout.
+    // Campos opcionais para não quebrar registros existentes.
+    // Se ausentes, o worker usa as variáveis de ambiente IMAP_USER/IMAP_PASSWORD
+    // como fallback (compatibilidade com o piloto original).
+    imapUser: v.optional(v.string()),
+    imapPassword: v.optional(v.string()),
+    imapHost: v.optional(v.string()),  // se null, usa IMAP_HOST do .env
+    imapPort: v.optional(v.number()),  // se null, usa IMAP_PORT do .env
   }).index("by_email", ["email"]),
 
   perfis: defineTable({

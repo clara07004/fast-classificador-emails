@@ -1,8 +1,8 @@
 /**
- * Script de Backup do Convex (S5)
+ * Script de Backup do Convex (S5) — v2 multi-tenant
  *
  * Exporta as tabelas criticas para um arquivo JSON comprimido (gzip).
- * Tabelas exportadas:
+ * Tabelas exportadas por funcionario:
  *   - correcoes       — dados de aprendizado (RAG Fase 2)
  *   - email_movements — feedback de reclassificacao
  *   - draft_diffs     — aprendizado de estilo por funcionario
@@ -19,14 +19,11 @@
  */
 
 import { createGzip } from 'zlib';
-import { createWriteStream, readdirSync, unlinkSync, mkdirSync } from 'fs';
+import { createWriteStream, readdirSync, unlinkSync, mkdirSync, readFileSync } from 'fs';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
 import path from 'path';
 import { fileURLToPath } from 'url';
-
-// Carregar .env manualmente (sem dependencia de dotenv)
-import { readFileSync } from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..', '..');
@@ -85,21 +82,13 @@ async function chamarGateway(fn, args) {
 }
 
 // ---------------------------------------------------------------------------
-// Backup
+// Export de dados de um funcionario
 // ---------------------------------------------------------------------------
 
-async function executarBackup() {
-  const inicio = Date.now();
-  const funcionarioId = process.env.PILOTO_FUNCIONARIO_ID;
+async function exportarFuncionario(funcionario) {
+  const funcionarioId = funcionario._id;
+  const label = funcionario.nome || funcionario.email || funcionarioId;
 
-  if (!funcionarioId) {
-    console.error('[backup] PILOTO_FUNCIONARIO_ID nao configurado — abortando');
-    process.exit(1);
-  }
-
-  console.log(`[backup] Iniciando export — funcionarioId: ${funcionarioId}`);
-
-  // 1. Exportar as tres tabelas em paralelo
   let correcoes, movimentos, diffs;
   try {
     [correcoes, movimentos, diffs] = await Promise.all([
@@ -108,16 +97,18 @@ async function executarBackup() {
       chamarGateway('emails.exportarDiffRascunhos', { funcionarioId }),
     ]);
   } catch (err) {
-    console.error(`[backup] Erro ao exportar dados do Convex: ${err.message}`);
-    process.exit(1);
+    console.error(`[backup] Erro ao exportar ${label}: ${err.message}`);
+    throw err;
   }
 
-  console.log(`[backup] Dados exportados — correcoes: ${correcoes.length}, movimentos: ${movimentos.length}, diffs: ${diffs.length}`);
+  console.log(
+    `[backup] ${label} — correcoes: ${correcoes.length}, movimentos: ${movimentos.length}, diffs: ${diffs.length}`
+  );
 
-  // 2. Montar payload
-  const payload = JSON.stringify({
-    exportadoEm: new Date().toISOString(),
+  return {
     funcionarioId,
+    nome: funcionario.nome || null,
+    email: funcionario.email || null,
     totais: {
       correcoes: correcoes.length,
       movimentos: movimentos.length,
@@ -126,13 +117,87 @@ async function executarBackup() {
     correcoes,
     movimentos,
     diffs,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Backup principal
+// ---------------------------------------------------------------------------
+
+async function executarBackup() {
+  const inicio = Date.now();
+
+  // 1. Carregar funcionarios ativos do Convex
+  let funcionarios;
+  try {
+    funcionarios = await chamarGateway('funcionarios.listarAtivos', {});
+  } catch (err) {
+    console.error(`[backup] Erro ao listar funcionarios ativos: ${err.message}`);
+    process.exit(1);
+  }
+
+  // Fallback: se Convex nao retornar ninguem, tentar PILOTO_FUNCIONARIO_ID do .env
+  if (!funcionarios || funcionarios.length === 0) {
+    const pilotoId = process.env.PILOTO_FUNCIONARIO_ID;
+    if (pilotoId) {
+      console.warn('[backup] Nenhum funcionario ativo no Convex — usando PILOTO_FUNCIONARIO_ID como fallback');
+      funcionarios = [{ _id: pilotoId, nome: 'Piloto', email: null }];
+    } else {
+      console.error('[backup] Nenhum funcionario ativo e PILOTO_FUNCIONARIO_ID nao configurado — abortando');
+      process.exit(1);
+    }
+  }
+
+  console.log(`[backup] Exportando dados de ${funcionarios.length} funcionario(s)...`);
+
+  // 2. Exportar todos os funcionarios em paralelo
+  const resultados = await Promise.allSettled(
+    funcionarios.map(f => exportarFuncionario(f))
+  );
+
+  const exportados = [];
+  const falhas = [];
+
+  for (let i = 0; i < resultados.length; i++) {
+    const r = resultados[i];
+    if (r.status === 'fulfilled') {
+      exportados.push(r.value);
+    } else {
+      const f = funcionarios[i];
+      falhas.push({ funcionarioId: f._id, erro: r.reason?.message });
+      console.error(`[backup] Falha ao exportar ${f.nome || f._id}: ${r.reason?.message}`);
+    }
+  }
+
+  if (exportados.length === 0) {
+    console.error('[backup] Nenhum funcionario exportado com sucesso — abortando');
+    process.exit(1);
+  }
+
+  // 3. Montar payload agregado
+  const totaisGerais = exportados.reduce(
+    (acc, d) => ({
+      correcoes: acc.correcoes + d.totais.correcoes,
+      movimentos: acc.movimentos + d.totais.movimentos,
+      diffs: acc.diffs + d.totais.diffs,
+    }),
+    { correcoes: 0, movimentos: 0, diffs: 0 }
+  );
+
+  const payload = JSON.stringify({
+    exportadoEm: new Date().toISOString(),
+    versao: 2, // v1 = single-tenant, v2 = multi-tenant
+    totalFuncionarios: exportados.length,
+    falhas: falhas.length > 0 ? falhas : undefined,
+    totaisGerais,
+    funcionarios: exportados,
   }, null, 2);
 
-  // 3. Garantir diretorio de backups
+  // 4. Garantir diretorio de backups
   const backupDir = path.join(ROOT, 'backups');
   mkdirSync(backupDir, { recursive: true });
 
-  // 4. Salvar arquivo comprimido
+  // 5. Salvar arquivo comprimido
   const data = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   const nomeArquivo = `backup-${data}.json.gz`;
   const caminho = path.join(backupDir, nomeArquivo);
@@ -147,14 +212,14 @@ async function executarBackup() {
     process.exit(1);
   }
 
-  // 5. Limpar backups antigos (manter os 7 mais recentes)
+  // 6. Limpar backups antigos (manter os 7 mais recentes)
   try {
     const arquivos = readdirSync(backupDir)
       .filter(f => f.startsWith('backup-') && f.endsWith('.json.gz'))
-      .sort() // ordem lexicografica = ordem cronologica (YYYY-MM-DD)
+      .sort()   // ordem lexicografica = ordem cronologica (YYYY-MM-DD)
       .reverse(); // mais recentes primeiro
 
-    const paraApagar = arquivos.slice(7); // manter 7
+    const paraApagar = arquivos.slice(7);
     for (const arquivo of paraApagar) {
       unlinkSync(path.join(backupDir, arquivo));
       console.log(`[backup] Removido backup antigo: ${arquivo}`);
@@ -164,7 +229,11 @@ async function executarBackup() {
   }
 
   const duracaoMs = Date.now() - inicio;
-  console.log(`[backup] Concluido em ${duracaoMs}ms — arquivo: ${nomeArquivo}`);
+  const sufixoFalhas = falhas.length > 0 ? ` — ${falhas.length} falha(s)` : '';
+  console.log(`[backup] Concluido em ${duracaoMs}ms — ${exportados.length} funcionario(s) — arquivo: ${nomeArquivo}${sufixoFalhas}`);
+
+  // Sair com codigo 2 se houve falhas parciais (permite detectar no cron/monitoramento)
+  if (falhas.length > 0) process.exit(2);
 }
 
 executarBackup().catch(err => {

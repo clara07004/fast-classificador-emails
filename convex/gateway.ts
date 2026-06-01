@@ -35,6 +35,7 @@ const MUTATIONS: Record<string, unknown> = {
 
 const QUERIES: Record<string, unknown> = {
   "estado.obterEstado":                    internal.estado.obterEstado,
+  "funcionarios.listarAtivos":             internal.funcionarios.listarAtivos,
   "emails.buscarEmailsPorFuncionario":     internal.emails.buscarEmailsPorFuncionario,
   "emails.buscarEmailPorId":               internal.emails.buscarEmailPorId,
   "emails.buscarEmailPorMessageId":        internal.emails.buscarEmailPorMessageId,

@@ -313,11 +313,57 @@ export async function salvarClassificacao(
 }
 
 /**
+ * Listar todos os funcionários ativos (com credenciais IMAP quando disponíveis)
+ *
+ * Usado pelo worker no boot para iniciar uma conexão IMAP por funcionário.
+ * @returns {Promise<Array>}
+ */
+export async function listarFuncionariosAtivos() {
+  try {
+    const resultado = await clienteGlobal.query("funcionarios.listarAtivos", {});
+    log.debug({ total: resultado?.length ?? 0 }, 'Funcionários ativos carregados do Convex');
+    return resultado || [];
+  } catch (err) {
+    log.error({ erro: err.message }, 'Erro ao listar funcionários ativos');
+    throw err;
+  }
+}
+
+/**
  * Buscar emails processados de um funcionario
  *
  * @param {string} funcionarioId
  * @param {number} limite
  * @param {number} ultimosDias
+ */
+export async function buscarEmailsProcessados(
+  funcionarioId,
+  limite = 50,
+  ultimosDias = 30
+) {
+  try {
+    const resultado = await clienteGlobal.query(
+      "emails.buscarEmailsPorFuncionario",
+      {
+        funcionarioId,
+        limite,
+        ultimosDias,
+      }
+    );
+
+    log.debug(
+      { funcionarioId, quantidade: resultado.length, limite, ultimosDias },
+      "Emails buscados"
+    );
+    return resultado;
+  } catch (err) {
+    log.error(
+      { funcionarioId, erro: err.message },
+      "Erro ao buscar emails processados"
+    );
+    throw err;
+  }
+}
  */
 export async function buscarEmailsProcessados(
   funcionarioId,
