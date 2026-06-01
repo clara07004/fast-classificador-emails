@@ -40,6 +40,10 @@ const QUERIES: Record<string, unknown> = {
   "emails.buscarEmailPorMessageId":        internal.emails.buscarEmailPorMessageId,
   "emails.buscarMovimentosPorFuncionario": internal.emails.buscarMovimentosPorFuncionario,
   "emails.buscarMovimentosPorPeriodo":     internal.emails.buscarMovimentosPorPeriodo,
+  // Queries de export para backup (S5) — sem paginação
+  "emails.exportarCorrecoes":     internal.emails.exportarCorrecoes,
+  "emails.exportarMovimentos":    internal.emails.exportarMovimentos,
+  "emails.exportarDiffRascunhos": internal.emails.exportarDiffRascunhos,
 };
 
 // ---------------------------------------------------------------------------

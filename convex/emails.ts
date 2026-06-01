@@ -358,3 +358,48 @@ export const buscarMovimentosPorPeriodo = internalQuery({
       );
   },
 });
+
+// ---------------------------------------------------------------------------
+// Queries de export para backup (S5)
+// Sem paginação — retornam todos os registros do funcionário.
+// Usadas apenas pelo script de backup, não pelo worker em tempo real.
+// ---------------------------------------------------------------------------
+
+/**
+ * Export: todas as correções de um funcionário
+ */
+export const exportarCorrecoes = internalQuery({
+  args: { funcionarioId: v.id("funcionarios") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("correcoes")
+      .withIndex("by_funcionario", (q) => q.eq("funcionarioId", args.funcionarioId))
+      .collect();
+  },
+});
+
+/**
+ * Export: todos os movimentos de um funcionário
+ */
+export const exportarMovimentos = internalQuery({
+  args: { funcionarioId: v.id("funcionarios") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("email_movements")
+      .withIndex("by_funcionario", (q) => q.eq("funcionarioId", args.funcionarioId))
+      .collect();
+  },
+});
+
+/**
+ * Export: todos os diffs rascunho×enviado de um funcionário
+ */
+export const exportarDiffRascunhos = internalQuery({
+  args: { funcionarioId: v.id("funcionarios") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("draft_diffs")
+      .withIndex("by_funcionario", (q) => q.eq("funcionarioId", args.funcionarioId))
+      .collect();
+  },
+});
