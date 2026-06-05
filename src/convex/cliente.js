@@ -364,32 +364,3 @@ export async function buscarEmailsProcessados(
     throw err;
   }
 }
- */
-export async function buscarEmailsProcessados(
-  funcionarioId,
-  limite = 50,
-  ultimosDias = 30
-) {
-  try {
-    const resultado = await clienteGlobal.query(
-      "emails.buscarEmailsPorFuncionario",
-      {
-        funcionarioId,
-        limite,
-        ultimosDias,
-      }
-    );
-
-    log.debug(
-      { funcionarioId, quantidade: resultado.length, limite, ultimosDias },
-      "Emails buscados"
-    );
-    return resultado;
-  } catch (err) {
-    log.error(
-      { funcionarioId, erro: err.message },
-      "Erro ao buscar emails processados"
-    );
-    throw err;
-  }
-}

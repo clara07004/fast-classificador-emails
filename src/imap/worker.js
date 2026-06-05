@@ -618,16 +618,25 @@ async function conectarComRetry(ws) {
   } catch (err) {
     ws.tentativaReconexao++;
 
+    // Observabilidade: resposta real do servidor IMAP (ImapFlow expõe estes campos no erro)
+    const detalheImap = {
+      code: err.code,
+      responseText: err.responseText,
+      serverResponseCode: err.serverResponseCode,
+      authenticationFailed: err.authenticationFailed,
+      responseStatus: err.responseStatus,
+    };
+
     if (ws.tentativaReconexao > MAX_TENTATIVAS) {
       log.error(
-        { funcionarioId: ws.id, tentativas: ws.tentativaReconexao, erro: err.message },
+        { funcionarioId: ws.id, tentativas: ws.tentativaReconexao, erro: err.message, ...detalheImap },
         `❌ [${ws.nome}] Falha após ${MAX_TENTATIVAS} tentativas`
       );
       ws.tentativaReconexao = 0;
     } else {
       const delay = Math.min(30000, 1000 * Math.pow(2, ws.tentativaReconexao - 1));
       log.warn(
-        { funcionarioId: ws.id, tentativa: ws.tentativaReconexao, delay_ms: delay, erro: err.message },
+        { funcionarioId: ws.id, tentativa: ws.tentativaReconexao, delay_ms: delay, erro: err.message, ...detalheImap },
         `[${ws.nome}] Reconectando em ${delay}ms...`
       );
       await new Promise(r => setTimeout(r, delay));
@@ -722,14 +731,6 @@ export async function startImapWorker() {
       // Só chega aqui se o loop while interno quebrar — não deveria acontecer
       log.error(
         { funcionarioId: f._id, err: err.message },
-        'Worker encerrou inesperadamente — processo pode precisar de restart'
-      );
-    });
-  }
-
-  // 4. Manter processo vivo (workers rodam em background)
-  await new Promise(() => {});
-}        { funcionarioId: f._id, err: err.message },
         'Worker encerrou inesperadamente — processo pode precisar de restart'
       );
     });

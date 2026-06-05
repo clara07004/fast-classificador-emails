@@ -84,10 +84,24 @@ class MovimentoMonitor {
     try {
       const novoSnapshot = {};
 
+      // Guarda: se a conexão não está utilizável, nem inicia o scan
+      if (!this.imap || this.imap.usable === false) {
+        log.warn('Conexão IMAP indisponível — scan adiado para o próximo ciclo');
+        return;
+      }
+
       for (const pastaName of PASTAS_PARA_MONITORAR) {
         try {
           novoSnapshot[pastaName] = await this.listarEmailsNaPasta(pastaName);
         } catch (err) {
+          // Conexão caiu no meio do scan — aborta o ciclo (evita varrer as demais pastas numa conexão morta)
+          if (!this.imap || this.imap.usable === false || /connection not available|connection closed|indispon|caiu/i.test(err.message || '')) {
+            log.warn(
+              { erro: err.message },
+              'Conexão IMAP caiu durante o scan — abortando; retoma no próximo ciclo'
+            );
+            return;
+          }
           log.warn(
             { pasta: pastaName, erro: err.message },
             'Erro ao listar emails na pasta'
@@ -130,6 +144,10 @@ class MovimentoMonitor {
       // Busca headers básicos (mais rápido que full parse)
       const emails = {};
       for (const uid of uids) {
+        // Aborta imediatamente se a conexão caiu — evita loop de milhares de erros por UID
+        if (!this.imap || this.imap.usable === false) {
+          throw new Error(`Conexão IMAP indisponível durante leitura da pasta ${pastaName}`);
+        }
         try {
           const message = await this.imap.fetchOne(uid, {
             headers: true,
@@ -145,6 +163,10 @@ class MovimentoMonitor {
             };
           }
         } catch (err) {
+          // Se a conexão caiu, não adianta tentar os demais UIDs — aborta a leitura da pasta
+          if (!this.imap || this.imap.usable === false || /connection not available|connection closed/i.test(err.message || '')) {
+            throw new Error(`Conexão IMAP caiu ao ler pasta ${pastaName}: ${err.message}`);
+          }
           log.warn(
             { pasta: pastaName, uid, erro: err.message },
             'Erro ao buscar headers de email'
@@ -154,6 +176,10 @@ class MovimentoMonitor {
 
       return emails;
     } catch (err) {
+      // Propaga falha de conexão para abortar o scan inteiro (não varrer as demais pastas)
+      if (!this.imap || this.imap.usable === false || /connection not available|connection closed|indispon|caiu/i.test(err.message || '')) {
+        throw err;
+      }
       log.error(
         { pasta: pastaName, erro: err.message },
         'Erro ao listar emails na pasta'

@@ -44,15 +44,26 @@ export const atualizarUltimoBuscado = internalMutation({
       });
     }
 
-    // Atualizar apenas se o novo UID é maior (never go backwards)
+    // Heartbeat: sempre registra atividade do worker (mesmo sem email novo).
+    // Sem isto, o /health marca como "stale" uma caixa saudável porém ociosa,
+    // pois ultimaAtualizacao só avançava quando chegava um UID maior.
+    const patch: {
+      statusConexao: string;
+      ultimaAtualizacao: number;
+      ultimoUidProcessado?: number;
+      ultimoTimestampProcessamento?: number;
+    } = {
+      statusConexao: args.statusConexao || estado.statusConexao,
+      ultimaAtualizacao: agora,
+    };
+
+    // Avança o UID apenas se o novo é maior (never go backwards)
     if (args.ultimoUid > estado.ultimoUidProcessado) {
-      await ctx.db.patch(estado._id, {
-        ultimoUidProcessado: args.ultimoUid,
-        ultimoTimestampProcessamento: agora,
-        statusConexao: args.statusConexao || estado.statusConexao,
-        ultimaAtualizacao: agora,
-      });
+      patch.ultimoUidProcessado = args.ultimoUid;
+      patch.ultimoTimestampProcessamento = agora;
     }
+
+    await ctx.db.patch(estado._id, patch);
 
     return { sucesso: true, ultimoUid: Math.max(args.ultimoUid, estado.ultimoUidProcessado) };
   },
